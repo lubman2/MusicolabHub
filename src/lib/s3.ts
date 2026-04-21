@@ -55,19 +55,16 @@ export function buildS3Key(
  *
  * @param key         - S3 object key (use `buildS3Key`)
  * @param contentType - MIME type (e.g. `audio/wav`)
- * @param maxSize     - Maximum upload size in bytes (defaults to `MAX_FILE_SIZE`)
  * @returns           - Presigned upload URL
  */
 export async function generatePresignedUploadUrl(
   key: string,
   contentType: string,
-  maxSize: number = MAX_FILE_SIZE,
 ): Promise<string> {
   const command = new PutObjectCommand({
     Bucket: S3_BUCKET,
     Key: key,
     ContentType: contentType,
-    ContentLength: maxSize,
   });
 
   return getSignedUrl(s3, command, { expiresIn: DEFAULT_UPLOAD_EXPIRES_IN });
