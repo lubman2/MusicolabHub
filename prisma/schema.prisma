@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -12,9 +7,473 @@ datasource db {
   provider = "postgresql"
 }
 
-// Placeholder model — will be replaced by full schema in unified migration
+// ──────────────────────────────────────────────
+// 01-01: User, Profile, EmailVerification
+// ──────────────────────────────────────────────
+
+enum UserStatus {
+  unverified
+  verified
+  onboarded
+  suspended
+}
+
+enum UserRole {
+  user
+  admin
+}
+
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  createdAt DateTime @default(now())
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  status       UserStatus @default(unverified)
+  role         UserRole   @default(user)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  profile            Profile?
+  emailVerifications EmailVerification[]
+  projects           Project[]
+  uploadedFiles      ProjectFile[]
+  projectVersions    ProjectVersion[]
+  memberships        ProjectMember[]
+  sentInvitations    Invitation[]        @relation("InviterInvitations")
+  receivedInvitations Invitation[]       @relation("InviteeInvitations")
+  commentThreads     CommentThread[]
+  comments           Comment[]
+  activityLogs       ActivityLog[]
+  splitRecords       SplitRecord[]
+  splitContributions SplitContributor[]
+  subscription       Subscription?
+  adminActions       AdminAction[]
+}
+
+model Profile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  displayName String?
+  headline    String?
+  bio         String?
+  avatarUrl   String?
+  skills      String[]
+  genres      String[]
+  priceRange  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EmailVerification {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ──────────────────────────────────────────────
+// 02-01: Project
+// ──────────────────────────────────────────────
+
+enum ProjectStatus {
+  active
+  archived
+  suspended
+  deleted_soft
+}
+
+model Project {
+  id            String        @id @default(cuid())
+  ownerId       String
+  title         String
+  description   String?
+  genre         String?
+  tags          String[]
+  coverImageUrl String?
+  status        ProjectStatus @default(active)
+  deletedAt     DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  owner          User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  files          ProjectFile[]
+  versions       ProjectVersion[]
+  members        ProjectMember[]
+  invitations    Invitation[]
+  commentThreads CommentThread[]
+  activityLogs   ActivityLog[]
+  splitRecords   SplitRecord[]
+
+  @@index([ownerId])
+  @@index([status])
+}
+
+// ──────────────────────────────────────────────
+// 03-01: ProjectFile
+// ──────────────────────────────────────────────
+
+enum FileStatus {
+  uploading
+  ready
+  failed
+  deleted_soft
+}
+
+model ProjectFile {
+  id           String     @id @default(cuid())
+  projectId    String
+  uploaderId   String
+  filename     String
+  originalName String
+  mimeType     String
+  fileSize     Int
+  s3Key        String
+  s3Bucket     String
+  status       FileStatus @default(uploading)
+  deletedAt    DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  project  Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploader User          @relation(fields: [uploaderId], references: [id])
+  versions VersionFile[]
+
+  @@index([projectId])
+  @@index([status])
+}
+
+// ──────────────────────────────────────────────
+// 04-01: ProjectVersion + VersionFile
+// ──────────────────────────────────────────────
+
+enum VersionStatus {
+  draft
+  published
+  superseded
+  deleted_soft
+}
+
+model ProjectVersion {
+  id          String        @id @default(cuid())
+  projectId   String
+  authorId    String
+  name        String
+  changelog   String?
+  status      VersionStatus @default(draft)
+  publishedAt DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author  User          @relation(fields: [authorId], references: [id])
+  files   VersionFile[]
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model VersionFile {
+  versionId String
+  fileId    String
+
+  version ProjectVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  file    ProjectFile    @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@id([versionId, fileId])
+}
+
+// ──────────────────────────────────────────────
+// 05-01: ProjectMember, Invitation
+// ──────────────────────────────────────────────
+
+enum MemberRole {
+  owner
+  editor
+  commenter
+  viewer
+}
+
+enum InvitationStatus {
+  pending
+  accepted
+  revoked
+  expired
+}
+
+model ProjectMember {
+  id        String     @id @default(cuid())
+  projectId String
+  userId    String
+  role      MemberRole @default(viewer)
+  joinedAt  DateTime   @default(now())
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
+
+model Invitation {
+  id           String           @id @default(cuid())
+  projectId    String
+  inviterId    String
+  inviteeEmail String
+  inviteeUserId String?
+  role         MemberRole       @default(viewer)
+  status       InvitationStatus @default(pending)
+  token        String           @unique
+  expiresAt    DateTime
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inviter User    @relation("InviterInvitations", fields: [inviterId], references: [id])
+  invitee User?   @relation("InviteeInvitations", fields: [inviteeUserId], references: [id])
+
+  @@index([projectId])
+  @@index([inviteeEmail])
+  @@index([token])
+  @@index([status])
+}
+
+// ──────────────────────────────────────────────
+// 06-01: CommentThread, Comment, ActivityLog
+// ──────────────────────────────────────────────
+
+enum ThreadStatus {
+  open
+  resolved
+  deleted_soft
+}
+
+enum TargetType {
+  project
+  file
+  version
+}
+
+enum ActivityAction {
+  file_uploaded
+  version_published
+  member_joined
+  comment_added
+  split_submitted
+  split_confirmed
+  split_rejected
+  member_invited
+  member_removed
+  project_created
+  project_archived
+}
+
+model CommentThread {
+  id         String       @id @default(cuid())
+  projectId  String
+  targetType TargetType
+  targetId   String
+  authorId   String
+  status     ThreadStatus @default(open)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author   User      @relation(fields: [authorId], references: [id])
+  comments Comment[]
+
+  @@index([projectId, targetType, targetId])
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  threadId  String
+  authorId  String
+  body      String
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  thread CommentThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author User          @relation(fields: [authorId], references: [id])
+
+  @@index([threadId])
+}
+
+model ActivityLog {
+  id         String         @id @default(cuid())
+  projectId  String
+  actorId    String
+  action     ActivityAction
+  targetType String
+  targetId   String
+  metadata   Json?
+  createdAt  DateTime       @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actor   User    @relation(fields: [actorId], references: [id])
+
+  @@index([projectId, targetType, targetId])
+}
+
+// ──────────────────────────────────────────────
+// 07-01: SplitRecord, SplitContributor, SplitConfirmation
+// ──────────────────────────────────────────────
+
+enum SplitStatus {
+  draft
+  pending_confirmation
+  partially_confirmed
+  confirmed
+  rejected
+  superseded
+}
+
+enum ConfirmationStatus {
+  pending
+  confirmed
+  rejected
+  expired
+}
+
+model SplitRecord {
+  id             String      @id @default(cuid())
+  projectId      String
+  createdById    String
+  status         SplitStatus @default(draft)
+  supersededById String?     @unique
+  submittedAt    DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  project      Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy    User               @relation(fields: [createdById], references: [id])
+  supersededBy SplitRecord?       @relation("SplitSupersedes", fields: [supersededById], references: [id])
+  supersedes   SplitRecord?       @relation("SplitSupersedes")
+  contributors SplitContributor[]
+
+  @@index([projectId])
+}
+
+model SplitContributor {
+  id            String   @id @default(cuid())
+  splitRecordId String
+  userId        String
+  role          String
+  percentage    Decimal  @db.Decimal(5, 2)
+  createdAt     DateTime @default(now())
+
+  splitRecord  SplitRecord        @relation(fields: [splitRecordId], references: [id], onDelete: Cascade)
+  user         User               @relation(fields: [userId], references: [id])
+  confirmation SplitConfirmation?
+
+  @@unique([splitRecordId, userId])
+}
+
+model SplitConfirmation {
+  id                 String             @id @default(cuid())
+  splitContributorId String             @unique
+  status             ConfirmationStatus @default(pending)
+  respondedAt        DateTime?
+  createdAt          DateTime           @default(now())
+
+  splitContributor SplitContributor @relation(fields: [splitContributorId], references: [id], onDelete: Cascade)
+}
+
+// ──────────────────────────────────────────────
+// 08-01: Subscription, PaymentEvent
+// ──────────────────────────────────────────────
+
+enum SubscriptionPlan {
+  trial
+  pro
+  team
+}
+
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  canceled
+  expired
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String             @unique
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  plan                 SubscriptionPlan   @default(trial)
+  status               SubscriptionStatus @default(trialing)
+  trialEndsAt          DateTime?
+  currentPeriodEnd     DateTime?
+  canceledAt           DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events PaymentEvent[]
+
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
+  @@index([status])
+}
+
+model PaymentEvent {
+  id             String    @id @default(cuid())
+  subscriptionId String
+  stripeEventId  String    @unique
+  type           String
+  payload        Json
+  processedAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+}
+
+// ──────────────────────────────────────────────
+// 09-01: AdminAction
+// ──────────────────────────────────────────────
+
+enum AdminActionType {
+  suspend_account
+  unsuspend_account
+  suspend_gig
+  unpublish_gig
+  restrict_project
+  restore_project
+  hold_payout
+  release_payout
+}
+
+enum AdminTargetType {
+  user
+  project
+  gig
+  payout
+}
+
+model AdminAction {
+  id           String          @id @default(cuid())
+  actorId      String
+  actionType   AdminActionType
+  targetType   AdminTargetType
+  targetId     String
+  reasonCode   String?
+  internalNote String?
+  createdAt    DateTime        @default(now())
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([targetType, targetId])
+  @@index([actorId])
+  @@index([createdAt])
 }
