@@ -3,8 +3,13 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!);
+}
+
+function getWebhookSecret() {
+  return process.env.STRIPE_WEBHOOK_SECRET!;
+}
 
 // Grace period: 7 days after payment becomes past_due before marking expired
 const GRACE_PERIOD_DAYS = 7;
@@ -19,7 +24,8 @@ export async function POST(req: NextRequest) {
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    const stripe = getStripe();
+    event = stripe.webhooks.constructEvent(body, signature, getWebhookSecret());
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: `Webhook signature verification failed: ${message}` }, { status: 400 });
