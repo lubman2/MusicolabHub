@@ -52,7 +52,7 @@ export default function PricingPage() {
       }
 
       if (data.url) {
-        window.location.href = data.url;
+        window.location.assign(data.url);
       }
     } catch {
       setError("Failed to start checkout");
