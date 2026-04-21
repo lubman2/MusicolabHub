@@ -22,6 +22,19 @@ export async function getCurrentUser(
 }
 
 /**
+ * Extract authenticated user from request.
+ * Stub: reads x-user-id header. Will be replaced by real auth (EPIC-01).
+ */
+export async function getAuthUser(
+  request: Request
+): Promise<User | null> {
+  const userId = request.headers.get("x-user-id");
+  if (!userId) return null;
+
+  return prisma.user.findUnique({ where: { id: userId } });
+}
+
+/**
  * Extracts the authenticated user ID from the request.
  * TODO: Replace with real session/JWT verification once auth is wired up.
  */
