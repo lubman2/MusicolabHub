@@ -1,23 +1,32 @@
 import Stripe from "stripe";
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-03-25.dahlia",
-  typescript: true,
-});
+let _stripe: Stripe | undefined;
 
-export const PLANS = {
-  pro: {
-    name: "Pro",
-    description: "Individual creator plan",
-    priceId: process.env.STRIPE_PRO_PRICE_ID!,
-  },
-  team: {
-    name: "Team",
-    description: "Team collaboration plan",
-    priceId: process.env.STRIPE_TEAM_PRICE_ID!,
-  },
-} as const;
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      apiVersion: "2026-03-25.dahlia",
+      typescript: true,
+    });
+  }
+  return _stripe;
+}
 
-export type PlanKey = keyof typeof PLANS;
+export function getPlans() {
+  return {
+    pro: {
+      name: "Pro",
+      description: "Individual creator plan",
+      priceId: process.env.STRIPE_PRO_PRICE_ID!,
+    },
+    team: {
+      name: "Team",
+      description: "Team collaboration plan",
+      priceId: process.env.STRIPE_TEAM_PRICE_ID!,
+    },
+  } as const;
+}
+
+export type PlanKey = "pro" | "team";
 
 export const TRIAL_PERIOD_DAYS = 14;

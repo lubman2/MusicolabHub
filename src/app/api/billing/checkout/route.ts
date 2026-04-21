@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { stripe, PLANS, TRIAL_PERIOD_DAYS, type PlanKey } from "@/lib/stripe";
+import { getStripe, getPlans, TRIAL_PERIOD_DAYS, type PlanKey } from "@/lib/stripe";
 
 export async function POST(request: NextRequest) {
   let body: { userId?: string; plan?: string };
@@ -19,14 +19,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!plan || !(plan in PLANS)) {
+  const plans = getPlans();
+
+  if (!plan || !(plan in plans)) {
     return NextResponse.json(
-      { error: `plan must be one of: ${Object.keys(PLANS).join(", ")}` },
+      { error: `plan must be one of: ${Object.keys(plans).join(", ")}` },
       { status: 400 },
     );
   }
 
-  const selectedPlan = PLANS[plan as PlanKey];
+  const selectedPlan = plans[plan as PlanKey];
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -45,6 +47,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Find or create Stripe Customer
+  const stripe = getStripe();
   let stripeCustomerId = user.subscription?.stripeCustomerId;
 
   if (!stripeCustomerId) {

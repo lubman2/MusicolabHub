@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import type Stripe from "stripe";
 
 export async function POST(request: NextRequest) {
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(
+    event = getStripe().webhooks.constructEvent(
       body,
       signature,
       process.env.STRIPE_WEBHOOK_SECRET!,
@@ -103,6 +103,12 @@ async function handleSubscriptionUpdated(
     unpaid: "expired",
   };
 
+  // current_period_end moved to SubscriptionItem in Stripe API 2026+
+  const firstItem = sub.items?.data?.[0];
+  const periodEnd = firstItem?.current_period_end
+    ? new Date(firstItem.current_period_end * 1000)
+    : null;
+
   const subscription = await prisma.subscription.update({
     where: { userId },
     data: {
@@ -112,7 +118,7 @@ async function handleSubscriptionUpdated(
         | "past_due"
         | "canceled"
         | "expired",
-      currentPeriodEnd: new Date(sub.current_period_end * 1000),
+      currentPeriodEnd: periodEnd,
       trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
       canceledAt: sub.canceled_at ? new Date(sub.canceled_at * 1000) : null,
     },
