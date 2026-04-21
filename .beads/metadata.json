@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "MusicolabHub",
+  "project_id": "0cb4c3d4-ee97-4100-a8f6-2247464589be"
+}
