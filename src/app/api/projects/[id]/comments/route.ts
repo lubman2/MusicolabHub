@@ -19,6 +19,85 @@ interface CreateThreadBody {
 }
 
 /**
+ * GET /api/projects/[id]/comments?targetType=&targetId=
+ * Lists comment threads filtered by target. Returns thread summary with
+ * author, first comment preview, reply count, status, and timestamps.
+ */
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id: projectId } = await params;
+
+  const userId = getUserId(req);
+  if (!userId) return unauthorized();
+
+  const allowed = await authorizeProjectMember(
+    userId,
+    projectId,
+    [...COMMENT_ALLOWED_ROLES],
+  );
+  if (!allowed) return forbidden();
+
+  // Optional filters from query params
+  const url = req.nextUrl;
+  const targetType = url.searchParams.get("targetType");
+  const targetId = url.searchParams.get("targetId");
+
+  // Validate targetType if provided
+  if (targetType && !VALID_TARGET_TYPES.includes(targetType as TargetType)) {
+    return NextResponse.json(
+      { error: `targetType must be one of: ${VALID_TARGET_TYPES.join(", ")}` },
+      { status: 400 },
+    );
+  }
+
+  // Build where clause
+  const where: Record<string, unknown> = {
+    projectId,
+    status: { not: "deleted_soft" as const },
+  };
+  if (targetType) where.targetType = targetType;
+  if (targetId) where.targetId = targetId;
+
+  const threads = await prisma.commentThread.findMany({
+    where,
+    include: {
+      author: { select: { id: true, email: true } },
+      comments: {
+        where: { deletedAt: null },
+        orderBy: { createdAt: "asc" },
+        take: 1,
+        select: {
+          id: true,
+          body: true,
+          createdAt: true,
+          author: { select: { id: true, email: true } },
+        },
+      },
+      _count: { select: { comments: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  // Shape response: first comment preview + replyCount
+  const result = threads.map((t) => ({
+    id: t.id,
+    projectId: t.projectId,
+    targetType: t.targetType,
+    targetId: t.targetId,
+    status: t.status,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
+    author: t.author,
+    firstComment: t.comments[0] ?? null,
+    replyCount: Math.max(0, t._count.comments - 1),
+  }));
+
+  return NextResponse.json(result);
+}
+
+/**
  * POST /api/projects/[id]/comments
  * Creates a new CommentThread with the first Comment.
  */
