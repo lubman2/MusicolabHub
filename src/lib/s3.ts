@@ -1,6 +1,7 @@
 import {
   S3Client,
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -68,6 +69,22 @@ export async function generatePresignedUploadUrl(
   });
 
   return getSignedUrl(s3, command, { expiresIn: DEFAULT_UPLOAD_EXPIRES_IN });
+}
+
+/**
+ * Check whether an object exists in S3.
+ *
+ * @returns `true` if the object exists, `false` otherwise.
+ */
+export async function checkFileExists(key: string): Promise<boolean> {
+  try {
+    await s3.send(new HeadObjectCommand({ Bucket: S3_BUCKET, Key: key }));
+    return true;
+  } catch (err: unknown) {
+    const code = (err as { name?: string }).name;
+    if (code === "NotFound" || code === "NoSuchKey") return false;
+    throw err;
+  }
 }
 
 /**
