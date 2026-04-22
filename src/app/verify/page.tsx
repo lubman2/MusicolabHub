@@ -9,7 +9,7 @@ type VerifyState =
   | { status: "loading" }
   | { status: "success" }
   | { status: "already_verified" }
-  | { status: "expired"; userId: string }
+  | { status: "expired" }
   | { status: "error"; message: string }
   | { status: "resending" }
   | { status: "resent" };
@@ -34,7 +34,7 @@ function VerifyContent() {
       } else if (data.code === "ALREADY_VERIFIED") {
         setState({ status: "already_verified" });
       } else if (data.code === "TOKEN_EXPIRED") {
-        setState({ status: "expired", userId: data.userId });
+        setState({ status: "expired" });
       } else {
         setState({ status: "error", message: data.error || "Verification failed." });
       }

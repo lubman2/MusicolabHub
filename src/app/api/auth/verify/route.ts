@@ -41,11 +41,7 @@ export async function GET(req: NextRequest) {
   // Expired
   if (new Date() > verification.expiresAt) {
     return NextResponse.json(
-      {
-        error: "Verification token has expired",
-        code: "TOKEN_EXPIRED",
-        userId: verification.userId,
-      },
+      { error: "Verification token has expired", code: "TOKEN_EXPIRED" },
       { status: 410 },
     );
   }
