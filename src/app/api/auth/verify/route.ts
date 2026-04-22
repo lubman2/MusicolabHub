@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  if (verification.user.status === "verified" || verification.usedAt) {
+  if (verification.user.status !== "unverified" || verification.usedAt) {
     return NextResponse.json(
       { error: "Email already verified", code: "ALREADY_VERIFIED" },
       { status: 409 },
