@@ -17,13 +17,14 @@ function getTransporter(): nodemailer.Transporter {
   return transporter;
 }
 
+const FROM = process.env.SMTP_FROM || "noreply@musiccollabhub.com";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "http://localhost:3000";
+
 export async function sendVerificationEmail(
   to: string,
   token: string,
 ): Promise<void> {
-  const appUrl = process.env.APP_URL || "http://localhost:3000";
-  const verifyUrl = `${appUrl}/api/auth/verify-email?token=${token}`;
-  const from = process.env.SMTP_FROM || "noreply@musiccollabhub.com";
+  const verifyUrl = `${APP_URL}/api/auth/verify-email?token=${token}`;
 
   if (!process.env.SMTP_HOST) {
     console.log(`[email] Verification email to ${to}: ${verifyUrl}`);
@@ -31,7 +32,7 @@ export async function sendVerificationEmail(
   }
 
   await getTransporter().sendMail({
-    from,
+    from: FROM,
     to,
     subject: "Verify your MusicCollabHub account",
     html: `
@@ -42,4 +43,53 @@ export async function sendVerificationEmail(
       <p>If you didn't create an account, you can ignore this email.</p>
     `,
   });
+}
+
+/**
+ * Send a project invitation email.
+ *
+ * Best-effort: logs failures but does not throw.
+ * The invitation is persisted in the DB regardless of email delivery.
+ */
+export async function sendInvitationEmail(opts: {
+  to: string;
+  inviterEmail: string;
+  projectTitle: string;
+  role: string;
+  token: string;
+}): Promise<boolean> {
+  const inviteUrl = `${APP_URL}/invitations/accept?token=${opts.token}`;
+
+  if (!process.env.SMTP_HOST) {
+    console.log(`[email] Invitation email to ${opts.to}: ${inviteUrl}`);
+    return true;
+  }
+
+  try {
+    await getTransporter().sendMail({
+      from: FROM,
+      to: opts.to,
+      subject: `You've been invited to "${opts.projectTitle}" on MusicCollabHub`,
+      text: [
+        `${opts.inviterEmail} invited you to collaborate on "${opts.projectTitle}" as ${opts.role}.`,
+        "",
+        `Accept the invitation: ${inviteUrl}`,
+        "",
+        "This invitation expires in 7 days.",
+      ].join("\n"),
+      html: `
+        <p><strong>${opts.inviterEmail}</strong> invited you to collaborate on
+        <strong>"${opts.projectTitle}"</strong> as <strong>${opts.role}</strong>.</p>
+        <p><a href="${inviteUrl}">Accept Invitation</a></p>
+        <p style="color:#666;font-size:12px">This invitation expires in 7 days.</p>
+      `,
+    });
+    return true;
+  } catch (error) {
+    console.error("[Email] Failed to send invitation email:", {
+      to: opts.to,
+      error,
+    });
+    return false;
+  }
 }
