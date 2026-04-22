@@ -2,14 +2,7 @@
 
 import { Nav } from "@/components/nav";
 import { useParams } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
-
-interface Member {
-  id: string;
-  role: string;
-  joinedAt: string;
-  user: { id: string; email: string };
-}
+import { useEffect, useState } from "react";
 
 interface Invitation {
   id: string;
@@ -23,26 +16,27 @@ interface Invitation {
 
 export default function MembersPage() {
   const { id: projectId } = useParams<{ id: string }>();
-  const [members, setMembers] = useState<Member[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    const headers = { "x-user-id": "dev-user" };
-
-    const [invRes] = await Promise.all([
-      fetch(`/api/projects/${projectId}/invitations`, { headers }),
-    ]);
-
-    if (invRes.ok) setInvitations(await invRes.json());
-    setLoading(false);
-  }, [projectId]);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    let cancelled = false;
+    const headers = { "x-user-id": "dev-user" };
+
+    fetch(`/api/projects/${projectId}/invitations`, { headers }).then(
+      async (res) => {
+        if (cancelled) return;
+        if (res.ok) setInvitations(await res.json());
+        setLoading(false);
+      },
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, refreshKey]);
 
   return (
     <>
@@ -148,7 +142,8 @@ export default function MembersPage() {
             onClose={() => setShowInviteDialog(false)}
             onInvited={() => {
               setShowInviteDialog(false);
-              loadData();
+              setLoading(true);
+              setRefreshKey((k) => k + 1);
             }}
           />
         )}
