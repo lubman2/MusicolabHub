@@ -24,7 +24,7 @@ export async function sendVerificationEmail(
   to: string,
   token: string,
 ): Promise<void> {
-  const verifyUrl = `${APP_URL}/api/auth/verify-email?token=${token}`;
+  const verifyUrl = `${APP_URL}/verify?token=${token}`;
 
   if (!process.env.SMTP_HOST) {
     console.log(`[email] Verification email to ${to}: ${verifyUrl}`);
