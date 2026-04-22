@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 
 interface Author {
   id: string;
@@ -79,9 +79,8 @@ export function CommentPanel({ projectId, targetType, targetId }: CommentPanelPr
 
   const apiBase = `/api/projects/${projectId}/comments`;
 
-  const fetchThreads = useCallback(() => {
+  useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     const qs = new URLSearchParams({ targetType, targetId });
     fetch(`${apiBase}?${qs}`, { headers })
       .then(async (res) => {
@@ -93,11 +92,7 @@ export function CommentPanel({ projectId, targetType, targetId }: CommentPanelPr
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [apiBase, targetType, targetId]);
-
-  useEffect(() => {
-    return fetchThreads();
-  }, [fetchThreads, refreshKey]);
+  }, [apiBase, targetType, targetId, refreshKey]);
 
   async function handleExpand(threadId: string) {
     if (expandedId === threadId) {

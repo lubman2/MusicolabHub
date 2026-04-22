@@ -75,7 +75,7 @@ export async function GET(
           author: { select: { id: true, email: true } },
         },
       },
-      _count: { select: { comments: true } },
+      _count: { select: { comments: { where: { deletedAt: null } } } },
     },
     orderBy: { createdAt: "desc" },
   });
