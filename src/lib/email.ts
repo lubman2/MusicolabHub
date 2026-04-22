@@ -93,3 +93,49 @@ export async function sendInvitationEmail(opts: {
     return false;
   }
 }
+
+/**
+ * Notify the split owner that a contributor has confirmed or rejected their allocation.
+ *
+ * Best-effort: logs failures but does not throw.
+ */
+export async function sendConfirmationResponseEmail(opts: {
+  to: string;
+  contributorEmail: string;
+  projectTitle: string;
+  response: "confirmed" | "rejected";
+}): Promise<boolean> {
+  const verb = opts.response === "confirmed" ? "confirmed" : "rejected";
+
+  if (!process.env.SMTP_HOST) {
+    console.log(
+      `[email] Split confirmation: ${opts.contributorEmail} ${verb} their allocation in "${opts.projectTitle}"`,
+    );
+    return true;
+  }
+
+  try {
+    await getTransporter().sendMail({
+      from: FROM,
+      to: opts.to,
+      subject: `Split ${verb} — "${opts.projectTitle}" on MusicCollabHub`,
+      text: [
+        `${opts.contributorEmail} has ${verb} their split allocation in "${opts.projectTitle}".`,
+        "",
+        `Log in to MusicCollabHub to view the current status.`,
+      ].join("\n"),
+      html: `
+        <p><strong>${opts.contributorEmail}</strong> has <strong>${verb}</strong> their split allocation
+        in <strong>"${opts.projectTitle}"</strong>.</p>
+        <p>Log in to MusicCollabHub to view the current status.</p>
+      `,
+    });
+    return true;
+  } catch (error) {
+    console.error("[Email] Failed to send confirmation response email:", {
+      to: opts.to,
+      error,
+    });
+    return false;
+  }
+}
