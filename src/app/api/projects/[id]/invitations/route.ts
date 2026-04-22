@@ -2,7 +2,6 @@ import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { logActivity } from "@/lib/activity-log";
 import { sendInvitationEmail } from "@/lib/email";
 import type { MemberRole } from "@/generated/prisma/enums";
 
