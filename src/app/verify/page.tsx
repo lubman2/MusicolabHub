@@ -14,7 +14,6 @@ type VerifyState =
 
 export default function VerifyPage() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const token = searchParams.get("token");
 
   const [state, setState] = useState<VerifyState>({ phase: "loading" });
