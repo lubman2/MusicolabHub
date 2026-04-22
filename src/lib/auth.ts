@@ -1,45 +1,75 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { verifyToken, type SessionPayload } from "@/lib/session";
 import type { User } from "@/generated/prisma/client";
 import type { MemberRole } from "@/generated/prisma/enums";
 
+const COOKIE_NAME = "session";
+
+/**
+ * Extract session payload from the request cookie.
+ */
+async function getSessionFromRequest(
+  req: NextRequest | Request,
+): Promise<SessionPayload | null> {
+  // NextRequest has cookies API directly
+  const token =
+    req instanceof NextRequest
+      ? req.cookies.get(COOKIE_NAME)?.value
+      : parseCookie(req.headers.get("cookie") ?? "", COOKIE_NAME);
+
+  if (!token) return null;
+  return verifyToken(token);
+}
+
+function parseCookie(header: string, name: string): string | undefined {
+  const match = header.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+  return match?.[1];
+}
+
 /**
  * Returns the authenticated user for the current request, or null.
- * TODO(EPIC-01): Replace with real session/JWT validation.
  */
 export async function getCurrentUser(
   req: NextRequest,
 ): Promise<User | null> {
-  // Stub: auth EPIC-01 will implement real session lookup.
-  // In development, reads x-user-id header for testing.
-  if (process.env.NODE_ENV === "development") {
-    const userId = req.headers.get("x-user-id");
-    if (userId) {
-      return prisma.user.findUnique({ where: { id: userId } });
-    }
-  }
-  return null;
+  const session = await getSessionFromRequest(req);
+  if (!session) return null;
+  return prisma.user.findUnique({ where: { id: session.userId } });
 }
 
 /**
  * Extract authenticated user from request.
- * Stub: reads x-user-id header. Will be replaced by real auth (EPIC-01).
  */
 export async function getAuthUser(
-  request: Request
+  request: Request,
 ): Promise<User | null> {
-  const userId = request.headers.get("x-user-id");
-  if (!userId) return null;
-
-  return prisma.user.findUnique({ where: { id: userId } });
+  const session = await getSessionFromRequest(request as NextRequest);
+  if (!session) return null;
+  return prisma.user.findUnique({ where: { id: session.userId } });
 }
 
 /**
  * Extracts the authenticated user ID from the request.
- * TODO: Replace with real session/JWT verification once auth is wired up.
  */
-export function getUserId(req: NextRequest): string | null {
-  return req.headers.get("x-user-id");
+export async function getUserId(
+  req: NextRequest,
+): Promise<string | null> {
+  const session = await getSessionFromRequest(req);
+  return session?.userId ?? null;
+}
+
+/**
+ * Middleware-style wrapper for protected route handlers.
+ * Extracts user from JWT cookie. Returns 401 if not authenticated.
+ */
+export async function withAuth(
+  req: NextRequest,
+  handler: (req: NextRequest, user: User) => Promise<NextResponse>,
+): Promise<NextResponse> {
+  const user = await getCurrentUser(req);
+  if (!user) return unauthorized();
+  return handler(req, user);
 }
 
 /**

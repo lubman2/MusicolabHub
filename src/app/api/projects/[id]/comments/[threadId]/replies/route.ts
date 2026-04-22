@@ -24,7 +24,7 @@ export async function POST(
   const { id: projectId, threadId } = await params;
 
   // Auth
-  const userId = getUserId(req);
+  const userId = await getUserId(req);
   if (!userId) return unauthorized();
 
   const allowed = await authorizeProjectMember(
