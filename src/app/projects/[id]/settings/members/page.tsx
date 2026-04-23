@@ -14,8 +14,23 @@ interface Invitation {
   inviter: { id: string; email: string };
 }
 
+interface Member {
+  id: string;
+  role: string;
+  joinedAt: string;
+  user: {
+    id: string;
+    email: string;
+    profile: {
+      displayName: string | null;
+      avatarUrl: string | null;
+    } | null;
+  };
+}
+
 export default function MembersPage() {
   const { id: projectId } = useParams<{ id: string }>();
+  const [members, setMembers] = useState<Member[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
@@ -25,13 +40,15 @@ export default function MembersPage() {
     let cancelled = false;
     const headers = { "x-user-id": "dev-user" };
 
-    fetch(`/api/projects/${projectId}/invitations`, { headers }).then(
-      async (res) => {
-        if (cancelled) return;
-        if (res.ok) setInvitations(await res.json());
-        setLoading(false);
-      },
-    );
+    Promise.all([
+      fetch(`/api/projects/${projectId}/members`, { headers }),
+      fetch(`/api/projects/${projectId}/invitations`, { headers }),
+    ]).then(async ([membersRes, invitationsRes]) => {
+      if (cancelled) return;
+      if (membersRes.ok) setMembers(await membersRes.json());
+      if (invitationsRes.ok) setInvitations(await invitationsRes.json());
+      setLoading(false);
+    });
 
     return () => {
       cancelled = true;
@@ -56,6 +73,43 @@ export default function MembersPage() {
           <p className="mt-8 text-sm text-neutral-500">Loading...</p>
         ) : (
           <>
+            {/* Current Members */}
+            {members.length > 0 && (
+              <section className="mt-8">
+                <h2 className="text-lg font-semibold">Current Members</h2>
+                <div className="mt-3 space-y-2">
+                  {members.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex items-center justify-between rounded-lg border border-neutral-200 p-4"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">
+                          {member.user.profile?.displayName || member.user.email}
+                        </p>
+                        <p className="text-xs text-neutral-500">
+                          {member.user.email} &middot; joined{" "}
+                          {new Date(member.joinedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                          {member.role}
+                        </span>
+                        {member.role !== "owner" && (
+                          <MemberActions
+                            projectId={projectId}
+                            member={member}
+                            onUpdate={() => setRefreshKey((k) => k + 1)}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* Pending Invitations */}
             {invitations.filter((i) => i.status === "pending").length > 0 && (
               <section className="mt-8">
@@ -84,6 +138,12 @@ export default function MembersPage() {
                             expires{" "}
                             {new Date(inv.expiresAt).toLocaleDateString()}
                           </span>
+                          <button
+                            onClick={() => revokeInvitation(projectId, inv.id)}
+                            className="text-xs text-red-600 hover:text-red-700"
+                          >
+                            Revoke
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -128,9 +188,9 @@ export default function MembersPage() {
               </section>
             )}
 
-            {invitations.length === 0 && (
+            {members.length === 0 && invitations.length === 0 && (
               <p className="mt-8 text-sm text-neutral-500">
-                No invitations yet. Invite collaborators to get started.
+                No members or invitations yet. Invite collaborators to get started.
               </p>
             )}
           </>
@@ -149,6 +209,116 @@ export default function MembersPage() {
         )}
       </main>
     </>
+  );
+
+  async function revokeInvitation(projectId: string, invitationId: string) {
+    if (!confirm("Revoke this invitation?")) return;
+
+    const res = await fetch(
+      `/api/projects/${projectId}/invitations/${invitationId}/revoke`,
+      {
+        method: "POST",
+        headers: { "x-user-id": "dev-user" },
+      },
+    );
+
+    if (res.ok) {
+      setRefreshKey((k) => k + 1);
+    } else {
+      const data = await res.json();
+      alert(data.error || "Failed to revoke invitation");
+    }
+  }
+}
+
+function MemberActions({
+  projectId,
+  member,
+  onUpdate,
+}: {
+  projectId: string;
+  member: Member;
+  onUpdate: () => void;
+}) {
+  const [showMenu, setShowMenu] = useState(false);
+  const [changingRole, setChangingRole] = useState(false);
+
+  async function changeRole(newRole: string) {
+    setChangingRole(true);
+    const res = await fetch(
+      `/api/projects/${projectId}/members/${member.id}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": "dev-user",
+        },
+        body: JSON.stringify({ role: newRole }),
+      },
+    );
+
+    if (res.ok) {
+      onUpdate();
+    } else {
+      const data = await res.json();
+      alert(data.error || "Failed to change role");
+    }
+    setChangingRole(false);
+    setShowMenu(false);
+  }
+
+  async function removeMember() {
+    if (!confirm(`Remove ${member.user.email} from this project?`)) return;
+
+    const res = await fetch(
+      `/api/projects/${projectId}/members/${member.id}`,
+      {
+        method: "DELETE",
+        headers: { "x-user-id": "dev-user" },
+      },
+    );
+
+    if (res.ok) {
+      onUpdate();
+    } else {
+      const data = await res.json();
+      alert(data.error || "Failed to remove member");
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShowMenu(!showMenu)}
+        className="text-xs text-neutral-600 hover:text-neutral-800"
+      >
+        ···
+      </button>
+      {showMenu && (
+        <div className="absolute right-0 z-10 mt-1 w-40 rounded-md border border-neutral-200 bg-white py-1 shadow-lg">
+          <div className="px-3 py-1 text-xs font-medium text-neutral-500">
+            Change role
+          </div>
+          {["editor", "commenter", "viewer"].map((role) => (
+            <button
+              key={role}
+              onClick={() => changeRole(role)}
+              disabled={changingRole || member.role === role}
+              className="block w-full px-3 py-1.5 text-left text-xs hover:bg-neutral-50 disabled:opacity-50"
+            >
+              {role}
+            </button>
+          ))}
+          <div className="my-1 border-t border-neutral-100" />
+          <button
+            onClick={removeMember}
+            className="block w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50"
+          >
+            Remove member
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
