@@ -58,7 +58,7 @@ export async function sendInvitationEmail(opts: {
   role: string;
   token: string;
 }): Promise<boolean> {
-  const inviteUrl = `${APP_URL}/invitations/accept?token=${opts.token}`;
+  const inviteUrl = `${APP_URL}/invitations/${opts.token}`;
 
   if (!process.env.SMTP_HOST) {
     console.log(`[email] Invitation email to ${opts.to}: ${inviteUrl}`);
