@@ -3,6 +3,7 @@ import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import { sendVerificationEmail } from "@/lib/email";
+import { TRIAL_PERIOD_DAYS } from "@/lib/stripe";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
@@ -87,7 +88,12 @@ export async function POST(req: NextRequest) {
     Date.now() + VERIFICATION_EXPIRY_HOURS * 60 * 60 * 1000,
   );
 
-  // Create user, profile stub, and email verification in one transaction
+  // Calculate trial end date
+  const trialEndsAt = new Date(
+    Date.now() + TRIAL_PERIOD_DAYS * 24 * 60 * 60 * 1000,
+  );
+
+  // Create user, profile stub, email verification, and trial subscription in one transaction
   const user = await prisma.user.create({
     data: {
       email: email!,
@@ -100,6 +106,13 @@ export async function POST(req: NextRequest) {
         create: {
           token: verificationToken,
           expiresAt,
+        },
+      },
+      subscription: {
+        create: {
+          plan: "trial",
+          status: "trialing",
+          trialEndsAt,
         },
       },
     },

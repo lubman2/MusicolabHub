@@ -51,6 +51,16 @@ async function fetchProjectsApi(
   return res.json();
 }
 
+interface SubscriptionInfo {
+  status: string | null;
+  plan: string | null;
+  canRead: boolean;
+  canWrite: boolean;
+  graceRemaining: number | null;
+  trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
+}
+
 export default function DashboardPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [projects, setProjects] = useState<ProjectCard[]>([]);
@@ -62,7 +72,27 @@ export default function DashboardPage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(
+    null,
+  );
   const currentPage = useRef(1);
+
+  // Fetch subscription status on mount
+  useEffect(() => {
+    fetch("/api/subscription/status")
+      .then((res) => {
+        if (res.ok) return res.json();
+        return null;
+      })
+      .then((data) => {
+        if (data?.subscription) {
+          setSubscription(data.subscription);
+        }
+      })
+      .catch(() => {
+        // Silently fail - subscription banner optional
+      });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -119,6 +149,10 @@ export default function DashboardPage() {
   return (
     <>
       <Nav />
+
+      {/* Subscription status banner */}
+      {subscription && <SubscriptionBanner subscription={subscription} />}
+
       <main className="mx-auto w-full max-w-7xl px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -330,6 +364,90 @@ function EmptyState({ filter }: { filter: Filter }) {
       </Link>
     </div>
   );
+}
+
+function SubscriptionBanner({
+  subscription,
+}: {
+  subscription: SubscriptionInfo;
+}) {
+  const { status, trialEndsAt, graceRemaining } = subscription;
+
+  // Don't show banner for active paid subscriptions
+  if (status === "active" || status === "admin") {
+    return null;
+  }
+
+  // Trial banner
+  if (status === "trialing" && trialEndsAt) {
+    const daysLeft = Math.ceil(
+      (new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+    );
+    return (
+      <div className="border-b border-blue-200 bg-blue-50 px-4 py-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between">
+          <p className="text-sm text-blue-900">
+            You're on a free trial with{" "}
+            <strong>{daysLeft} day{daysLeft !== 1 ? "s" : ""} remaining</strong>.
+          </p>
+          <Link
+            href="/pricing"
+            className="rounded-md bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Upgrade now
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Past due banner
+  if (status === "past_due") {
+    return (
+      <div className="border-b border-orange-200 bg-orange-50 px-4 py-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-orange-900">
+              Payment past due
+            </p>
+            <p className="text-xs text-orange-700">
+              {graceRemaining && graceRemaining > 0
+                ? `Update payment method within ${graceRemaining} day${graceRemaining !== 1 ? "s" : ""} to avoid losing access.`
+                : "Write access suspended. Update payment to continue creating."}
+            </p>
+          </div>
+          <Link
+            href="/pricing"
+            className="rounded-md bg-orange-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-orange-700"
+          >
+            Update payment
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Inactive subscription (canceled/expired)
+  if (status === "canceled" || status === "expired" || !status) {
+    return (
+      <div className="border-b border-red-200 bg-red-50 px-4 py-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between">
+          <p className="text-sm text-red-900">
+            Your subscription is inactive. Subscribe to continue using
+            MusicolabHub.
+          </p>
+          <Link
+            href="/pricing"
+            className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+          >
+            Subscribe
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function formatRelativeTime(dateStr: string): string {
