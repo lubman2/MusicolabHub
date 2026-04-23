@@ -4,7 +4,7 @@ import { Nav } from "@/components/nav";
 import { MultiFileUpload } from "@/components/multi-file-upload";
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 interface FileUploader {
   id: string;
@@ -81,7 +81,7 @@ export default function FilesPage() {
   const [error, setError] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
 
-  const fetchFiles = async (page: number = currentPage) => {
+  const fetchFiles = useCallback(async (page: number = currentPage) => {
     setLoading(true);
     setError(null);
 
@@ -103,11 +103,11 @@ export default function FilesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId, currentPage]);
 
   useEffect(() => {
     fetchFiles(currentPage);
-  }, [projectId, currentPage]);
+  }, [projectId, currentPage, fetchFiles]);
 
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -130,8 +130,11 @@ export default function FilesPage() {
         throw new Error("Soubor není připraven ke stažení");
       }
 
-      // Open download URL in new tab
-      window.open(fileData.downloadUrl, "_blank");
+      // Download file using link click (avoids popup blockers)
+      const a = document.createElement("a");
+      a.href = fileData.downloadUrl;
+      a.download = filename;
+      a.click();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Neznámá chyba";
       alert(`Chyba při stahování: ${message}`);

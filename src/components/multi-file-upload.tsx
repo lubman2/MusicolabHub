@@ -150,16 +150,12 @@ export function MultiFileUpload({ projectId, onUploadComplete }: MultiFileUpload
       const validFiles = newFiles.filter((f) => f.status === "pending");
       await Promise.all(validFiles.map((f) => uploadFile(f)));
 
-      // Call completion callback if all successful
-      const allSuccessful = validFiles.every(
-        (f) => uploadingFiles.find((uf) => uf.id === f.id)?.status === "success"
-      );
-
-      if (allSuccessful && onUploadComplete) {
+      // Call completion callback after uploads finish
+      if (onUploadComplete) {
         onUploadComplete();
       }
     },
-    [projectId, onUploadComplete, uploadingFiles]
+    [projectId, onUploadComplete]
   );
 
   const handleDrop = useCallback(
