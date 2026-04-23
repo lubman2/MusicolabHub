@@ -71,35 +71,39 @@ export default function VersionDetailPage() {
   const [version, setVersion] = useState<VersionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const loadVersion = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await fetch(`/api/projects/${projectId}/versions/${versionId}/files`);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Failed to load version" }));
-        throw new Error(err.error || "Failed to load version");
-      }
-
-      const data = await res.json();
-      setVersion(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load version");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [reloadTrigger, setReloadTrigger] = useState(0);
 
   useEffect(() => {
-    loadVersion();
-  }, [projectId, versionId]);
+    let cancelled = false;
 
-  const handleUploadComplete = (successCount: number, failedCount: number) => {
+    fetch(`/api/projects/${projectId}/versions/${versionId}/files`)
+      .then(async (res) => {
+        if (cancelled) return;
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Failed to load version" }));
+          throw new Error(err.error || "Failed to load version");
+        }
+
+        const data = await res.json();
+        setVersion(data);
+        setError(null);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Failed to load version");
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, versionId, reloadTrigger]);
+
+  const handleUploadComplete = (successCount: number) => {
     if (successCount > 0) {
-      // Reload version to show new files
-      loadVersion();
+      setReloadTrigger((prev) => prev + 1);
     }
   };
 

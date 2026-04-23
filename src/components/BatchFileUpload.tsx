@@ -233,6 +233,7 @@ export function BatchFileUpload({
     if (droppedFiles.length > 0) {
       addFiles(droppedFiles);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
