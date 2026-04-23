@@ -43,3 +43,12 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Gas Town (added by gt)
+.runtime/
+.claude/
+.logs/
+__pycache__/
+state.json
+CLAUDE.md
+CLAUDE.local.md
