@@ -74,26 +74,12 @@ export async function GET(request: NextRequest) {
   }
 
   // Mark invitation as revoked
-  await prisma.$transaction(async (tx) => {
-    await tx.invitation.update({
-      where: { id: invitation.id },
-      data: {
-        status: "revoked",
-        inviteeUserId: user.id,
-      },
-    });
-
-    // Create activity log
-    await tx.activityLog.create({
-      data: {
-        projectId: invitation.projectId,
-        actorId: user.id,
-        action: "invitation_declined",
-        targetType: "invitation",
-        targetId: invitation.id,
-        metadata: { role: invitation.role },
-      },
-    });
+  await prisma.invitation.update({
+    where: { id: invitation.id },
+    data: {
+      status: "revoked",
+      inviteeUserId: user.id,
+    },
   });
 
   // Return success with redirect to dashboard
