@@ -4,7 +4,7 @@ import { Nav } from "@/components/nav";
 import { MultiFileUpload } from "@/components/multi-file-upload";
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 
 interface FileUploader {
   id: string;
@@ -80,34 +80,38 @@ export default function FilesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
-
-  const fetchFiles = useCallback(async (page: number = currentPage) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await fetch(
-        `/api/projects/${projectId}/files?page=${page}&limit=20`
-      );
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Nepodařilo se načíst soubory");
-      }
-
-      const json: FilesResponse = await res.json();
-      setData(json);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Neznámá chyba";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId, currentPage]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
-    fetchFiles(currentPage);
-  }, [projectId, currentPage, fetchFiles]);
+    let cancelled = false;
+
+    fetch(`/api/projects/${projectId}/files?page=${currentPage}&limit=20`)
+      .then(async (res) => {
+        if (cancelled) return;
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          setError(errorData.error || "Nepodařilo se načíst soubory");
+          setLoading(false);
+          return;
+        }
+
+        const json: FilesResponse = await res.json();
+        setData(json);
+        setError(null);
+        setLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : "Neznámá chyba";
+        setError(message);
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, currentPage, refreshTrigger]);
 
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -143,7 +147,7 @@ export default function FilesPage() {
 
   const handleUploadComplete = () => {
     setShowUpload(false);
-    fetchFiles(1); // Refresh list from page 1
+    setRefreshTrigger((prev) => prev + 1); // Trigger refresh
   };
 
   return (

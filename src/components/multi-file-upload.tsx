@@ -49,7 +49,7 @@ export function MultiFileUpload({ projectId, onUploadComplete }: MultiFileUpload
     return null;
   };
 
-  const uploadFile = async (uploadingFile: UploadingFile) => {
+  const uploadFile = useCallback(async (uploadingFile: UploadingFile) => {
     const { file, id } = uploadingFile;
 
     try {
@@ -73,7 +73,7 @@ export function MultiFileUpload({ projectId, onUploadComplete }: MultiFileUpload
         throw new Error(error.error || "Nepodařilo se získat upload URL");
       }
 
-      const { uploadUrl, fileId, s3Key } = await urlRes.json();
+      const { uploadUrl, fileId } = await urlRes.json();
 
       // Step 2: Upload to S3
       setUploadingFiles((prev) =>
@@ -123,7 +123,7 @@ export function MultiFileUpload({ projectId, onUploadComplete }: MultiFileUpload
         prev.map((f) => (f.id === id ? { ...f, status: "error", error: message } : f))
       );
     }
-  };
+  }, [projectId]);
 
   const handleFiles = useCallback(
     async (files: FileList | null) => {
@@ -155,7 +155,7 @@ export function MultiFileUpload({ projectId, onUploadComplete }: MultiFileUpload
         onUploadComplete();
       }
     },
-    [projectId, onUploadComplete]
+    [onUploadComplete, uploadFile]
   );
 
   const handleDrop = useCallback(
