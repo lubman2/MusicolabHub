@@ -3,7 +3,7 @@
 import { Nav } from "@/components/nav";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 
 type Filter = "all" | "owned" | "member";
 
@@ -373,6 +373,16 @@ function SubscriptionBanner({
 }) {
   const { status, trialEndsAt, graceRemaining } = subscription;
 
+  // Calculate days left - use new Date() for current time (allowed in useMemo)
+  const daysLeft = useMemo(() => {
+    if (trialEndsAt) {
+      return Math.ceil(
+        (new Date(trialEndsAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
+      );
+    }
+    return 0;
+  }, [trialEndsAt]);
+
   // Don't show banner for active paid subscriptions
   if (status === "active" || status === "admin") {
     return null;
@@ -380,14 +390,11 @@ function SubscriptionBanner({
 
   // Trial banner
   if (status === "trialing" && trialEndsAt) {
-    const daysLeft = Math.ceil(
-      (new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
-    );
     return (
       <div className="border-b border-blue-200 bg-blue-50 px-4 py-3">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <p className="text-sm text-blue-900">
-            You're on a free trial with{" "}
+            You&apos;re on a free trial with{" "}
             <strong>{daysLeft} day{daysLeft !== 1 ? "s" : ""} remaining</strong>.
           </p>
           <Link
