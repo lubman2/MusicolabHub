@@ -136,7 +136,7 @@ export default function FilesPage() {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-    } catch (err) {
+    } catch {
       alert("Chyba při stahování souboru");
     } finally {
       setDownloading(null);
