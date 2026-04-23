@@ -37,14 +37,14 @@ export function FileUpload({ projectId, onUploadComplete }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const validateFile = (file: File): string | null => {
+  const validateFile = (file: File): string | undefined => {
     if (!ALLOWED_TYPES.includes(file.type)) {
       return `Nepodporovaný typ souboru: ${file.type}`;
     }
     if (file.size > MAX_FILE_SIZE) {
       return `Soubor je příliš velký (max 2GB)`;
     }
-    return null;
+    return undefined;
   };
 
   const handleFiles = (fileList: FileList | null) => {

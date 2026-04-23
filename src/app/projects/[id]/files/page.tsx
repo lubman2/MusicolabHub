@@ -4,7 +4,7 @@ import { Nav } from "@/components/nav";
 import { FileUpload } from "@/components/file-upload";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 interface FileUploader {
   id: string;
@@ -79,7 +79,38 @@ export default function FilesPage() {
   const [error, setError] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
 
-  const fetchFiles = async () => {
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadFiles = async () => {
+      setLoading(true);
+      setError(null);
+      const qs = new URLSearchParams({ page: String(page), limit: "20" });
+      if (showAll) qs.set("status", "all");
+
+      try {
+        const res = await fetch(`/api/projects/${projectId}/files?${qs}`);
+        if (cancelled) return;
+        if (res.ok) {
+          setResp(await res.json());
+        } else {
+          setError("Nepodařilo se načíst soubory");
+        }
+      } catch {
+        if (!cancelled) setError("Chyba při načítání souborů");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadFiles();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, page, showAll]);
+
+  const fetchFiles = useCallback(async () => {
     setLoading(true);
     setError(null);
     const qs = new URLSearchParams({ page: String(page), limit: "20" });
@@ -92,15 +123,11 @@ export default function FilesPage() {
       } else {
         setError("Nepodařilo se načíst soubory");
       }
-    } catch (err) {
+    } catch {
       setError("Chyba při načítání souborů");
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchFiles();
   }, [projectId, page, showAll]);
 
   const handleUploadComplete = () => {
@@ -120,7 +147,7 @@ export default function FilesPage() {
       } else {
         alert("Nepodařilo se načíst informace o souboru");
       }
-    } catch (err) {
+    } catch {
       alert("Chyba při stahování souboru");
     }
   };
@@ -255,7 +282,7 @@ export default function FilesPage() {
             </div>
 
             {/* Pagination */}
-            {pagination.totalPages > 1 && (
+            {pagination && pagination.totalPages > 1 && (
               <div className="mt-6 flex justify-center gap-2">
                 {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(
                   (p) => (
