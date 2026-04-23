@@ -1,8 +1,8 @@
 "use client";
 
 import { Nav } from "@/components/nav";
-import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 
 type VerificationState =
@@ -14,9 +14,8 @@ type VerificationState =
   | "invalid"
   | "error";
 
-export default function VerifyPage() {
+function VerifyContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [state, setState] = useState<VerificationState>("loading");
   const [email, setEmail] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -271,5 +270,27 @@ export default function VerifyPage() {
         </div>
       </main>
     </>
+  );
+}
+
+export default function VerifyPage() {
+  return (
+    <Suspense
+      fallback={
+        <>
+          <Nav />
+          <main className="flex flex-1 items-center justify-center px-4">
+            <div className="w-full max-w-md space-y-6 text-center">
+              <div className="flex justify-center">
+                <div className="h-12 w-12 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900"></div>
+              </div>
+              <h1 className="text-2xl font-bold">Loading...</h1>
+            </div>
+          </main>
+        </>
+      }
+    >
+      <VerifyContent />
+    </Suspense>
   );
 }
