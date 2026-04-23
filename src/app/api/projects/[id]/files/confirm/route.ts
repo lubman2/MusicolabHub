@@ -6,7 +6,8 @@ import { logActivity } from "@/lib/activity-log";
 
 export const POST = withActiveSubscription(
   "write",
-  async (request, ctx, { params }: { params: Promise<{ id: string }> }) => {
+  async (request, ctx, ...args: unknown[]) => {
+    const { params } = args[0] as { params: Promise<{ id: string }> };
     const { id: projectId } = await params;
     const user = ctx.user;
 

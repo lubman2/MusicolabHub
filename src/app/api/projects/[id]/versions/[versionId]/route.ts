@@ -11,11 +11,10 @@ import { logActivity } from "@/lib/activity-log";
  */
 export const PATCH = withActiveSubscription(
   "write",
-  async (
-    request,
-    ctx,
-    { params }: { params: Promise<{ id: string; versionId: string }> },
-  ) => {
+  async (request, ctx, ...args: unknown[]) => {
+    const { params } = args[0] as {
+      params: Promise<{ id: string; versionId: string }>;
+    };
     const { id: projectId, versionId } = await params;
     const user = ctx.user;
 
