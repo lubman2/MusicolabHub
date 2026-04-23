@@ -21,17 +21,23 @@ function VerifyContent() {
   const [errorMessage, setErrorMessage] = useState<string>("");
 
   useEffect(() => {
+    let cancelled = false;
     const token = searchParams.get("token");
 
     if (!token) {
-      setState("invalid");
-      setErrorMessage("No verification token provided");
+      // Use setTimeout to defer setState, avoiding synchronous state update in effect
+      setTimeout(() => {
+        if (cancelled) return;
+        setState("invalid");
+        setErrorMessage("No verification token provided");
+      }, 0);
       return;
     }
 
     // Call the verification API
-    fetch(`/api/auth/verify?token=${encodeURIComponent(token)}`)
-      .then(async (res) => {
+    fetch(`/api/auth/verify?token=${encodeURIComponent(token)}`).then(
+      async (res) => {
+        if (cancelled) return;
         const data = await res.json();
 
         if (!res.ok) {
@@ -41,7 +47,10 @@ function VerifyContent() {
             setEmail(data.email);
           } else if (data.code === "ALREADY_USED") {
             setState("already_used");
-            if (data.userStatus === "verified" || data.userStatus === "onboarded") {
+            if (
+              data.userStatus === "verified" ||
+              data.userStatus === "onboarded"
+            ) {
               // If already verified via this token being used, treat as verified
               setState("already_verified");
             }
@@ -58,12 +67,18 @@ function VerifyContent() {
         } else {
           setState("success");
         }
-      })
-      .catch((err) => {
+      },
+      (err) => {
+        if (cancelled) return;
         console.error("Verification error:", err);
         setState("error");
         setErrorMessage("An unexpected error occurred");
-      });
+      },
+    );
+
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams]);
 
   const handleResendClick = () => {
