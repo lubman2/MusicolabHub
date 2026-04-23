@@ -97,3 +97,78 @@ export async function GET(request: NextRequest) {
     },
   });
 }
+
+/**
+ * POST /api/projects — create a new project for the current user.
+ */
+export async function POST(request: NextRequest) {
+  const user = await getCurrentUser(request);
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let body: {
+    title?: string;
+    description?: string;
+    genre?: string;
+  };
+
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const title = body.title?.trim() ?? "";
+  const description = body.description?.trim() || null;
+  const genre = body.genre?.trim() || null;
+
+  if (title.length < 3) {
+    return NextResponse.json(
+      { error: "Title must be at least 3 characters" },
+      { status: 422 },
+    );
+  }
+
+  if (title.length > 100) {
+    return NextResponse.json(
+      { error: "Title must be 100 characters or less" },
+      { status: 422 },
+    );
+  }
+
+  const project = await prisma.project.create({
+    data: {
+      ownerId: user.id,
+      title,
+      description,
+      genre,
+      members: {
+        create: {
+          userId: user.id,
+          role: "owner",
+        },
+      },
+    },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      genre: true,
+      createdAt: true,
+    },
+  });
+
+  await prisma.activityLog.create({
+    data: {
+      projectId: project.id,
+      actorId: user.id,
+      action: "project_created",
+      targetType: "project",
+      targetId: project.id,
+      metadata: { title: project.title },
+    },
+  });
+
+  return NextResponse.json(project, { status: 201 });
+}

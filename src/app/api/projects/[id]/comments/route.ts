@@ -19,6 +19,105 @@ interface CreateThreadBody {
 }
 
 /**
+ * GET /api/projects/[id]/comments?targetType=&targetId=
+ * Lists comment threads for a specific project/file/version target.
+ */
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id: projectId } = await params;
+
+  const userId = await getUserId(req);
+  if (!userId) return unauthorized();
+
+  const allowed = await authorizeProjectMember(
+    userId,
+    projectId,
+    ["owner", "editor", "commenter", "viewer"],
+  );
+  if (!allowed) return forbidden();
+
+  const { searchParams } = new URL(req.url);
+  const targetType = searchParams.get("targetType");
+  const targetId = searchParams.get("targetId");
+
+  if (!targetType || !targetId) {
+    return NextResponse.json(
+      { error: "targetType and targetId are required" },
+      { status: 400 },
+    );
+  }
+
+  if (!VALID_TARGET_TYPES.includes(targetType as TargetType)) {
+    return NextResponse.json(
+      { error: `targetType must be one of: ${VALID_TARGET_TYPES.join(", ")}` },
+      { status: 400 },
+    );
+  }
+
+  const targetExists = await verifyTarget(
+    projectId,
+    targetType as TargetType,
+    targetId,
+  );
+  if (!targetExists) {
+    return NextResponse.json(
+      { error: "Target not found in this project" },
+      { status: 404 },
+    );
+  }
+
+  const threads = await prisma.commentThread.findMany({
+    where: {
+      projectId,
+      targetType: targetType as TargetType,
+      targetId,
+      status: { not: "deleted_soft" },
+    },
+    orderBy: { updatedAt: "desc" },
+    include: {
+      author: {
+        select: {
+          id: true,
+          email: true,
+          profile: { select: { displayName: true } },
+        },
+      },
+      comments: {
+        where: { deletedAt: null },
+        orderBy: { createdAt: "asc" },
+        include: {
+          author: {
+            select: {
+              id: true,
+              email: true,
+              profile: { select: { displayName: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const data = threads.map((thread) => {
+    const [firstComment, ...replies] = thread.comments;
+
+    return {
+      id: thread.id,
+      status: thread.status,
+      createdAt: thread.createdAt,
+      updatedAt: thread.updatedAt,
+      author: thread.author,
+      firstComment: firstComment ?? null,
+      replyCount: replies.length,
+    };
+  });
+
+  return NextResponse.json(data);
+}
+
+/**
  * POST /api/projects/[id]/comments
  * Creates a new CommentThread with the first Comment.
  */
