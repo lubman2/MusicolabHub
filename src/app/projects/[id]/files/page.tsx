@@ -3,7 +3,7 @@
 import { Nav } from "@/components/nav";
 import { FileUpload } from "@/components/file-upload";
 import Link from "next/link";
-import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 interface FileUploader {
@@ -70,24 +70,33 @@ const STATUS_LABELS: Record<string, string> = {
 export default function FilesPage() {
   const { id: projectId } = useParams<{ id: string }>();
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   const page = Number(searchParams.get("page")) || 1;
   const showAll = searchParams.get("status") === "all";
 
   const [resp, setResp] = useState<FilesResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
 
-  const fetchFiles = () => {
+  const fetchFiles = async () => {
     setLoading(true);
+    setError(null);
     const qs = new URLSearchParams({ page: String(page), limit: "20" });
     if (showAll) qs.set("status", "all");
 
-    fetch(`/api/projects/${projectId}/files?${qs}`).then(async (res) => {
-      if (res.ok) setResp(await res.json());
+    try {
+      const res = await fetch(`/api/projects/${projectId}/files?${qs}`);
+      if (res.ok) {
+        setResp(await res.json());
+      } else {
+        setError("Nepodařilo se načíst soubory");
+      }
+    } catch (err) {
+      setError("Chyba při načítání souborů");
+    } finally {
       setLoading(false);
-    });
+    }
   };
 
   useEffect(() => {
@@ -99,12 +108,20 @@ export default function FilesPage() {
   };
 
   const handleDownload = async (fileId: string) => {
-    const res = await fetch(`/api/projects/${projectId}/files/${fileId}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.downloadUrl) {
-        window.open(data.downloadUrl, "_blank");
+    try {
+      const res = await fetch(`/api/projects/${projectId}/files/${fileId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.downloadUrl) {
+          window.open(data.downloadUrl, "_blank");
+        } else {
+          alert("Soubor ještě není připraven ke stažení");
+        }
+      } else {
+        alert("Nepodařilo se načíst informace o souboru");
       }
+    } catch (err) {
+      alert("Chyba při stahování souboru");
     }
   };
 
@@ -114,6 +131,25 @@ export default function FilesPage() {
         <Nav />
         <main className="max-w-6xl mx-auto p-6">
           <p className="text-neutral-500">Načítání...</p>
+        </main>
+      </>
+    );
+  }
+
+  if (error) {
+    return (
+      <>
+        <Nav />
+        <main className="max-w-6xl mx-auto p-6">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-red-800">{error}</p>
+            <button
+              onClick={fetchFiles}
+              className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
+            >
+              Zkusit znovu
+            </button>
+          </div>
         </main>
       </>
     );
