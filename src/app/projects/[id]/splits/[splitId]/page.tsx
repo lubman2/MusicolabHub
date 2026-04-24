@@ -21,17 +21,35 @@ interface Contributor {
   } | null;
 }
 
+type SplitStatus =
+  | "draft"
+  | "pending_confirmation"
+  | "partially_confirmed"
+  | "confirmed"
+  | "rejected"
+  | "superseded";
+
+interface RevisionLink {
+  id: string;
+  status: SplitStatus;
+  submittedAt: string | null;
+  createdAt: string;
+}
+
 interface SplitRecord {
   id: string;
-  status: string;
+  status: SplitStatus;
   createdAt: string;
   submittedAt: string | null;
+  supersededById: string | null;
   createdBy: {
     id: string;
     email: string;
     profile: { displayName: string | null } | null;
   };
   contributors: Contributor[];
+  supersedes: RevisionLink | null;
+  supersededBy: RevisionLink | null;
 }
 
 const ROLE_OPTIONS = ["songwriter", "producer", "performer", "engineer", "other"];
@@ -45,6 +63,23 @@ const CONFIRMATION_STYLES: Record<
   rejected: "bg-red-100 text-red-800",
   expired: "bg-neutral-200 text-neutral-600",
 };
+
+const SPLIT_STATUS_STYLES: Record<SplitStatus, string> = {
+  draft: "bg-neutral-100 text-neutral-700",
+  pending_confirmation: "bg-amber-100 text-amber-800",
+  partially_confirmed: "bg-blue-100 text-blue-800",
+  confirmed: "bg-green-100 text-green-800",
+  rejected: "bg-red-100 text-red-800",
+  superseded: "bg-neutral-200 text-neutral-500",
+};
+
+function formatRevDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("cs-CZ", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 function userName(user: Contributor["user"]): string {
   return user.profile?.displayName || user.email;
@@ -179,8 +214,10 @@ export default function SplitEditorPage() {
               &larr; All splits
             </Link>
             <h1 className="mt-1 text-2xl font-bold">Split Editor</h1>
-            <span className="inline-block rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-700">
-              {split.status}
+            <span
+              className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${SPLIT_STATUS_STYLES[split.status]}`}
+            >
+              {split.status.replace(/_/g, " ")}
             </span>
           </div>
           {isDraft && (
@@ -192,6 +229,54 @@ export default function SplitEditorPage() {
             </button>
           )}
         </div>
+
+        {/* Revision history navigation */}
+        {(split.supersedes || split.supersededBy || split.status === "superseded") && (
+          <div className="mb-6 rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-sm">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              Revision history
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {split.supersedes && (
+                <div className="flex items-center gap-2">
+                  <span className="text-neutral-500">Replaces:</span>
+                  <Link
+                    href={`/projects/${projectId}/splits/${split.supersedes.id}`}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Revision from {formatRevDate(split.supersedes.createdAt)}
+                  </Link>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${SPLIT_STATUS_STYLES[split.supersedes.status]}`}
+                  >
+                    {split.supersedes.status.replace(/_/g, " ")}
+                  </span>
+                </div>
+              )}
+              {split.supersededBy && (
+                <div className="flex items-center gap-2">
+                  <span className="text-neutral-500">Replaced by:</span>
+                  <Link
+                    href={`/projects/${projectId}/splits/${split.supersededBy.id}`}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Revision from {formatRevDate(split.supersededBy.createdAt)}
+                  </Link>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${SPLIT_STATUS_STYLES[split.supersededBy.status]}`}
+                  >
+                    {split.supersededBy.status.replace(/_/g, " ")}
+                  </span>
+                </div>
+              )}
+              {split.status === "superseded" && !split.supersededBy && (
+                <div className="text-neutral-500">
+                  This revision has been superseded.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Running total indicator */}
         <div className="mb-6 rounded-lg border border-neutral-200 p-4">

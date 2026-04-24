@@ -55,6 +55,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           profile: { select: { displayName: true } },
         },
       },
+      supersedes: {
+        select: { id: true, status: true, submittedAt: true, createdAt: true },
+      },
+      supersededBy: {
+        select: { id: true, status: true, submittedAt: true, createdAt: true },
+      },
     },
   });
 

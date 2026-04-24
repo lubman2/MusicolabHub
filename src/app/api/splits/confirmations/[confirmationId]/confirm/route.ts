@@ -99,6 +99,25 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       data: { status: newSplitStatus },
     });
 
+    // When this split becomes fully confirmed, supersede any prior confirmed
+    // split for the same project so the new revision takes effect.
+    if (newSplitStatus === "confirmed") {
+      const prior = await tx.splitRecord.findFirst({
+        where: {
+          projectId: split.projectId,
+          status: "confirmed",
+          id: { not: split.id },
+          supersededById: null,
+        },
+      });
+      if (prior) {
+        await tx.splitRecord.update({
+          where: { id: prior.id },
+          data: { status: "superseded", supersededById: split.id },
+        });
+      }
+    }
+
     return tx.splitConfirmation.findUniqueOrThrow({
       where: { id: confirmationId },
       include: {

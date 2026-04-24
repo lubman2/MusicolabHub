@@ -27,7 +27,8 @@ interface SplitRecord {
     | "pending_confirmation"
     | "partially_confirmed"
     | "confirmed"
-    | "rejected";
+    | "rejected"
+    | "superseded";
   supersededById: string | null;
   submittedAt: string | null;
   createdAt: string;
@@ -45,6 +46,7 @@ const SPLIT_STATUS_STYLES: Record<SplitRecord["status"], string> = {
   partially_confirmed: "bg-blue-100 text-blue-800",
   confirmed: "bg-green-100 text-green-800",
   rejected: "bg-red-100 text-red-800",
+  superseded: "bg-neutral-200 text-neutral-500 line-through",
 };
 
 const CONFIRMATION_STYLES: Record<
@@ -166,11 +168,14 @@ export default function SplitsListPage() {
     setCreating(false);
   }
 
-  // Current = first non-superseded split (newest first from API).
-  // History = everything else.
-  const currentIdx = splits.findIndex((s) => s.supersededById === null);
-  const current = currentIdx >= 0 ? splits[currentIdx] : null;
-  const history = splits.filter((_, i) => i !== currentIdx);
+  // Active = the confirmed split in effect (if any) plus any in-flight
+  // drafts/pending revisions. History = superseded or rejected splits.
+  const active = splits.filter(
+    (s) => s.status !== "superseded" && s.status !== "rejected",
+  );
+  const history = splits.filter(
+    (s) => s.status === "superseded" || s.status === "rejected",
+  );
 
   return (
     <>
@@ -195,16 +200,21 @@ export default function SplitsListPage() {
           </p>
         ) : (
           <div className="mt-6 space-y-6">
-            {current && (
+            {active.length > 0 && (
               <section>
                 <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                  Current
+                  {active.length > 1 ? "Active & In Progress" : "Current"}
                 </h2>
-                <SplitCard
-                  split={current}
-                  projectId={projectId}
-                  highlighted
-                />
+                <div className="space-y-3">
+                  {active.map((split, i) => (
+                    <SplitCard
+                      key={split.id}
+                      split={split}
+                      projectId={projectId}
+                      highlighted={split.status === "confirmed" || i === 0}
+                    />
+                  ))}
+                </div>
               </section>
             )}
 
