@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     );
   }
 
-  await createSessionCookie({ userId: user.id, role: user.role });
+  await createSessionCookie({ userId: user.id, role: user.role, status: user.status });
 
   return NextResponse.json({
     user: {

@@ -13,6 +13,7 @@ function getSecret() {
 export interface SessionPayload {
   userId: string;
   role: string;
+  status: string;
 }
 
 export async function signToken(payload: SessionPayload): Promise<string> {
