@@ -6,7 +6,13 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-interface FileDetail {
+interface Uploader {
+  id: string;
+  email: string;
+  profile: { displayName: string | null } | null;
+}
+
+interface VersionFile {
   id: string;
   filename: string;
   originalName: string;
@@ -14,15 +20,8 @@ interface FileDetail {
   fileSize: number;
   status: string;
   uploadedAt: string;
-  uploader: {
-    email: string;
-    profile: { displayName: string | null } | null;
-  };
-}
-
-interface VersionFile {
-  id: string;
-  file: FileDetail;
+  uploader: Uploader;
+  downloadUrl: string | null;
 }
 
 interface VersionDetail {
@@ -63,7 +62,7 @@ function displayName(user: { email: string; profile: { displayName: string | nul
 const STATUS_STYLES: Record<string, string> = {
   published: "bg-green-100 text-green-800",
   draft: "bg-amber-100 text-amber-800",
-  superseded: "bg-neutral-100 text-neutral-500",
+  superseded: "bg-neutral-100 text-neutral-600",
 };
 
 export default function VersionDetailPage() {
@@ -76,7 +75,7 @@ export default function VersionDetailPage() {
   useEffect(() => {
     let cancelled = false;
 
-    fetch(`/api/projects/${projectId}/versions/${versionId}/files`)
+    fetch(`/api/projects/${projectId}/versions/${versionId}`)
       .then(async (res) => {
         if (cancelled) return;
 
@@ -107,6 +106,9 @@ export default function VersionDetailPage() {
     }
   };
 
+  const isDraft = version?.status === "draft";
+  const isSuperseded = version?.status === "superseded";
+
   return (
     <>
       <Nav />
@@ -130,6 +132,12 @@ export default function VersionDetailPage() {
 
         {version && (
           <>
+            {isSuperseded && (
+              <div className="mb-6 rounded-lg border border-neutral-300 bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
+                This version has been superseded by a newer published version.
+              </div>
+            )}
+
             {/* Version header */}
             <div className="rounded-lg border border-neutral-200 bg-white p-6">
               <div className="flex items-start justify-between">
@@ -145,12 +153,14 @@ export default function VersionDetailPage() {
                     </span>
                   </div>
                   {version.changelog && (
-                    <p className="mt-2 text-sm text-neutral-600">{version.changelog}</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-600">
+                      {version.changelog}
+                    </p>
                   )}
                 </div>
               </div>
 
-              <div className="mt-4 flex gap-6 text-sm text-neutral-500">
+              <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-neutral-500">
                 <div>
                   <span className="font-medium">Created:</span>{" "}
                   {formatDate(version.createdAt)}
@@ -167,60 +177,68 @@ export default function VersionDetailPage() {
               </div>
             </div>
 
-            {/* File upload section */}
-            <div className="mt-8">
-              <h2 className="mb-4 text-lg font-semibold text-neutral-900">Upload Files</h2>
-              <BatchFileUpload
-                projectId={projectId}
-                onUploadComplete={handleUploadComplete}
-              />
-            </div>
+            {/* File upload — drafts only (immutability for published/superseded) */}
+            {isDraft && (
+              <div className="mt-8">
+                <h2 className="mb-4 text-lg font-semibold text-neutral-900">Upload Files</h2>
+                <BatchFileUpload
+                  projectId={projectId}
+                  onUploadComplete={handleUploadComplete}
+                />
+              </div>
+            )}
 
-            {/* Uploaded files list */}
+            {/* Files table */}
             <div className="mt-8">
               <h2 className="mb-4 text-lg font-semibold text-neutral-900">
                 Files ({version.files.length})
               </h2>
 
               {version.files.length === 0 ? (
-                <p className="text-sm text-neutral-500">No files uploaded yet.</p>
+                <p className="text-sm text-neutral-500">No files in this version.</p>
               ) : (
-                <div className="space-y-2">
-                  {version.files.map((vf) => (
-                    <div
-                      key={vf.id}
-                      className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-4"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <h3 className="truncate text-sm font-medium text-neutral-900">
-                          {vf.file.originalName}
-                        </h3>
-                        <div className="mt-1 flex gap-4 text-xs text-neutral-500">
-                          <span>{formatFileSize(vf.file.fileSize)}</span>
-                          <span>•</span>
-                          <span>{vf.file.mimeType}</span>
-                          <span>•</span>
-                          <span>Uploaded {formatDate(vf.file.uploadedAt)}</span>
-                          <span>•</span>
-                          <span>by {displayName(vf.file.uploader)}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex shrink-0 items-center gap-2">
-                        <span
-                          className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                            vf.file.status === "ready"
-                              ? "bg-green-100 text-green-800"
-                              : vf.file.status === "uploading"
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {vf.file.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
+                  <table className="w-full text-sm">
+                    <thead className="bg-neutral-50 text-left text-xs font-medium uppercase tracking-wide text-neutral-500">
+                      <tr>
+                        <th className="px-4 py-2">Name</th>
+                        <th className="px-4 py-2">Type</th>
+                        <th className="px-4 py-2">Size</th>
+                        <th className="px-4 py-2 text-right">Download</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-200">
+                      {version.files.map((f) => (
+                        <tr key={f.id}>
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-neutral-900">
+                              {f.originalName}
+                            </div>
+                            <div className="mt-0.5 text-xs text-neutral-500">
+                              Uploaded {formatDate(f.uploadedAt)} by {displayName(f.uploader)}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-neutral-600">{f.mimeType}</td>
+                          <td className="px-4 py-3 text-neutral-600">
+                            {formatFileSize(f.fileSize)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {f.downloadUrl ? (
+                              <a
+                                href={f.downloadUrl}
+                                className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                                download
+                              >
+                                Download
+                              </a>
+                            ) : (
+                              <span className="text-xs text-neutral-400">{f.status}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
