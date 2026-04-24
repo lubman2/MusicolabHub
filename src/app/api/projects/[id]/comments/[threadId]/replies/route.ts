@@ -6,6 +6,7 @@ import {
   unauthorized,
   forbidden,
 } from "@/lib/auth";
+import { createNotifications } from "@/lib/notifications";
 
 const COMMENT_ALLOWED_ROLES = ["owner", "editor", "commenter"] as const;
 
@@ -94,6 +95,32 @@ export async function POST(
 
     return newComment;
   });
+
+  // Notify the thread author + everyone who has previously commented in the thread.
+  const participants = await prisma.comment.findMany({
+    where: { threadId },
+    select: { authorId: true },
+    distinct: ["authorId"],
+  });
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { title: true },
+  });
+  const recipients = [
+    comment.thread.author.id,
+    ...participants.map((p) => p.authorId),
+  ];
+  await createNotifications(
+    recipients,
+    {
+      type: "comment_added",
+      title: `New reply on ${project?.title ?? "a project"}`,
+      body: body.trim().slice(0, 240),
+      sourceType: "thread",
+      sourceId: threadId,
+    },
+    [userId],
+  );
 
   return NextResponse.json(comment, { status: 201 });
 }

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { sendInvitationEmail } from "@/lib/email";
+import { createNotification } from "@/lib/notifications";
 import type { MemberRole } from "@/generated/prisma/enums";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -174,6 +175,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       projectTitle: project.title,
       role: inv.role,
       token: inv.token,
+    });
+  }
+
+  // In-app notification for invitees who already have an account.
+  for (const inv of invitations) {
+    if (!inv.invitee?.id) continue;
+    await createNotification({
+      userId: inv.invitee.id,
+      type: "invitation_received",
+      title: `${user.email} invited you to ${project.title}`,
+      body: `Role: ${inv.role}`,
+      sourceType: "invitation",
+      sourceId: inv.id,
     });
   }
 

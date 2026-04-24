@@ -47,6 +47,7 @@ model User {
   splitContributions SplitContributor[]
   subscription       Subscription?
   adminActions       AdminAction[]
+  notifications      Notification[]
 }
 
 model Profile {
@@ -322,6 +323,37 @@ model ActivityLog {
   actor   User    @relation(fields: [actorId], references: [id])
 
   @@index([projectId, targetType, targetId])
+}
+
+// ──────────────────────────────────────────────
+// 06-07: Notification
+// ──────────────────────────────────────────────
+
+enum NotificationType {
+  comment_added
+  invitation_received
+  version_published
+  member_joined
+  split_submitted
+  split_confirmed
+  split_rejected
+}
+
+model Notification {
+  id         String           @id @default(cuid())
+  userId     String
+  type       NotificationType
+  title      String
+  body       String?
+  isRead     Boolean          @default(false)
+  sourceType String?
+  sourceId   String?
+  createdAt  DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@index([userId, createdAt])
 }
 
 // ──────────────────────────────────────────────

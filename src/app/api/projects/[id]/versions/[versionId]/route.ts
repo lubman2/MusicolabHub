@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-log";
+import {
+  createNotifications,
+  getProjectAudience,
+} from "@/lib/notifications";
 import { generatePresignedDownloadUrl } from "@/lib/s3";
 
 /**
@@ -225,6 +229,24 @@ export async function PATCH(
     type: "version",
     id: versionId,
   });
+
+  // --- Notify project members (best-effort) ---
+  const projectMeta = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { title: true },
+  });
+  const audience = await getProjectAudience(projectId);
+  await createNotifications(
+    audience,
+    {
+      type: "version_published",
+      title: `New version published in ${projectMeta?.title ?? "a project"}`,
+      body: published.name,
+      sourceType: "version",
+      sourceId: versionId,
+    },
+    [user.id],
+  );
 
   return NextResponse.json(published);
 }

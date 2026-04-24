@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NotificationBell } from "./notification-bell";
 
 export function Nav() {
   return (
@@ -7,10 +8,11 @@ export function Nav() {
         <Link href="/" className="text-lg font-semibold">
           MusicCollabHub
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <NotificationBell />
           <Link
             href="/login"
-            className="text-sm text-neutral-600 hover:text-neutral-900"
+            className="ml-2 text-sm text-neutral-600 hover:text-neutral-900"
           >
             Log in
           </Link>

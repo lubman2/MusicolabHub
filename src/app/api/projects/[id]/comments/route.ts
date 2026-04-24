@@ -6,6 +6,10 @@ import {
   unauthorized,
   forbidden,
 } from "@/lib/auth";
+import {
+  createNotifications,
+  getProjectAudience,
+} from "@/lib/notifications";
 import type { TargetType } from "@/generated/prisma/enums";
 
 const VALID_TARGET_TYPES: TargetType[] = ["project", "file", "version"];
@@ -115,6 +119,24 @@ export async function POST(
 
     return newThread;
   });
+
+  // Notify other project members (best-effort, after the transaction).
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { title: true },
+  });
+  const audience = await getProjectAudience(projectId);
+  await createNotifications(
+    audience,
+    {
+      type: "comment_added",
+      title: `New comment on ${project?.title ?? "a project"}`,
+      body: body.trim().slice(0, 240),
+      sourceType: "thread",
+      sourceId: thread.id,
+    },
+    [userId],
+  );
 
   return NextResponse.json(thread, { status: 201 });
 }
