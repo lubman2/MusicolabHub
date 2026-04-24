@@ -10,18 +10,45 @@ interface Contributor {
   userId: string;
   role: string;
   percentage: string;
-  user: { id: string; email: string };
+  user: {
+    id: string;
+    email: string;
+    profile: { displayName: string | null } | null;
+  };
+  confirmation: {
+    status: "pending" | "confirmed" | "rejected" | "expired";
+    respondedAt: string | null;
+  } | null;
 }
 
 interface SplitRecord {
   id: string;
   status: string;
   createdAt: string;
-  createdBy: { id: string; email: string };
+  submittedAt: string | null;
+  createdBy: {
+    id: string;
+    email: string;
+    profile: { displayName: string | null } | null;
+  };
   contributors: Contributor[];
 }
 
 const ROLE_OPTIONS = ["songwriter", "producer", "performer", "engineer", "other"];
+
+const CONFIRMATION_STYLES: Record<
+  NonNullable<Contributor["confirmation"]>["status"],
+  string
+> = {
+  pending: "bg-amber-100 text-amber-800",
+  confirmed: "bg-green-100 text-green-800",
+  rejected: "bg-red-100 text-red-800",
+  expired: "bg-neutral-200 text-neutral-600",
+};
+
+function userName(user: Contributor["user"]): string {
+  return user.profile?.displayName || user.email;
+}
 
 export default function SplitEditorPage() {
   const { id: projectId, splitId } = useParams<{
@@ -208,7 +235,24 @@ export default function SplitEditorPage() {
               key={c.id}
               className="flex items-center gap-3 rounded-lg border border-neutral-200 p-3"
             >
-              <div className="flex-1 text-sm font-medium">{c.user.email}</div>
+              <div className="flex-1 text-sm">
+                <div className="font-medium">{userName(c.user)}</div>
+                {c.user.profile?.displayName && (
+                  <div className="text-xs text-neutral-500">{c.user.email}</div>
+                )}
+              </div>
+              {c.confirmation && (
+                <span
+                  className={`rounded px-2 py-0.5 text-xs font-semibold uppercase ${CONFIRMATION_STYLES[c.confirmation.status]}`}
+                  title={
+                    c.confirmation.respondedAt
+                      ? `Responded ${new Date(c.confirmation.respondedAt).toLocaleString("cs-CZ")}`
+                      : "Awaiting response"
+                  }
+                >
+                  {c.confirmation.status}
+                </span>
+              )}
               <select
                 value={c.role}
                 disabled={!isDraft}

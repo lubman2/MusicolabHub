@@ -5,17 +5,133 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+interface Contributor {
+  id: string;
+  role: string;
+  percentage: string;
+  user: {
+    id: string;
+    email: string;
+    profile: { displayName: string | null } | null;
+  };
+  confirmation: {
+    status: "pending" | "confirmed" | "rejected" | "expired";
+    respondedAt: string | null;
+  } | null;
+}
+
 interface SplitRecord {
   id: string;
-  status: string;
+  status:
+    | "draft"
+    | "pending_confirmation"
+    | "partially_confirmed"
+    | "confirmed"
+    | "rejected";
+  supersededById: string | null;
+  submittedAt: string | null;
   createdAt: string;
-  createdBy: { id: string; email: string };
-  contributors: {
+  createdBy: {
     id: string;
-    role: string;
-    percentage: string;
-    user: { id: string; email: string };
-  }[];
+    email: string;
+    profile: { displayName: string | null } | null;
+  };
+  contributors: Contributor[];
+}
+
+const SPLIT_STATUS_STYLES: Record<SplitRecord["status"], string> = {
+  draft: "bg-neutral-100 text-neutral-700",
+  pending_confirmation: "bg-amber-100 text-amber-800",
+  partially_confirmed: "bg-blue-100 text-blue-800",
+  confirmed: "bg-green-100 text-green-800",
+  rejected: "bg-red-100 text-red-800",
+};
+
+const CONFIRMATION_STYLES: Record<
+  NonNullable<Contributor["confirmation"]>["status"],
+  string
+> = {
+  pending: "bg-amber-100 text-amber-800",
+  confirmed: "bg-green-100 text-green-800",
+  rejected: "bg-red-100 text-red-800",
+  expired: "bg-neutral-200 text-neutral-600",
+};
+
+function userName(user: Contributor["user"]): string {
+  return user.profile?.displayName || user.email;
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("cs-CZ", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function SplitCard({
+  split,
+  projectId,
+  highlighted,
+}: {
+  split: SplitRecord;
+  projectId: string;
+  highlighted: boolean;
+}) {
+  const total = split.contributors.reduce(
+    (sum, c) => sum + Number(c.percentage),
+    0,
+  );
+  return (
+    <Link
+      href={`/projects/${projectId}/splits/${split.id}`}
+      className={`block rounded-lg border p-4 transition ${
+        highlighted
+          ? "border-neutral-900 bg-white shadow-sm hover:shadow"
+          : "border-neutral-200 hover:bg-neutral-50"
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span
+            className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${SPLIT_STATUS_STYLES[split.status]}`}
+          >
+            {split.status.replace(/_/g, " ")}
+          </span>
+          <span className="text-sm text-neutral-500">
+            by {userName(split.createdBy)}
+          </span>
+          <span className="text-xs text-neutral-400">
+            {formatDate(split.createdAt)}
+          </span>
+        </div>
+        <span className="text-sm text-neutral-500">
+          {split.contributors.length} contributors &middot; {total.toFixed(2)}%
+        </span>
+      </div>
+      {split.contributors.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {split.contributors.map((c) => (
+            <span
+              key={c.id}
+              className="inline-flex items-center gap-1.5 rounded-full bg-neutral-50 px-2 py-0.5 text-xs text-neutral-700"
+            >
+              <span className="font-medium">{userName(c.user)}</span>
+              <span className="text-neutral-400">·</span>
+              <span>{Number(c.percentage).toFixed(2)}%</span>
+              {c.confirmation && (
+                <span
+                  className={`ml-1 rounded px-1.5 py-px text-[10px] font-semibold uppercase ${CONFIRMATION_STYLES[c.confirmation.status]}`}
+                >
+                  {c.confirmation.status}
+                </span>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+    </Link>
+  );
 }
 
 export default function SplitsListPage() {
@@ -24,6 +140,7 @@ export default function SplitsListPage() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,7 +151,9 @@ export default function SplitsListPage() {
       if (res.ok) setSplits(await res.json());
       setLoading(false);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [projectId, refreshKey]);
 
   async function handleCreate() {
@@ -46,6 +165,12 @@ export default function SplitsListPage() {
     if (res.ok) setRefreshKey((k) => k + 1);
     setCreating(false);
   }
+
+  // Current = first non-superseded split (newest first from API).
+  // History = everything else.
+  const currentIdx = splits.findIndex((s) => s.supersededById === null);
+  const current = currentIdx >= 0 ? splits[currentIdx] : null;
+  const history = splits.filter((_, i) => i !== currentIdx);
 
   return (
     <>
@@ -69,35 +194,44 @@ export default function SplitsListPage() {
             No splits yet. Create one to get started.
           </p>
         ) : (
-          <div className="mt-6 space-y-4">
-            {splits.map((split) => {
-              const total = split.contributors.reduce(
-                (sum, c) => sum + Number(c.percentage),
-                0,
-              );
-              return (
-                <Link
-                  key={split.id}
-                  href={`/projects/${projectId}/splits/${split.id}`}
-                  className="block rounded-lg border border-neutral-200 p-4 hover:bg-neutral-50"
+          <div className="mt-6 space-y-6">
+            {current && (
+              <section>
+                <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  Current
+                </h2>
+                <SplitCard
+                  split={current}
+                  projectId={projectId}
+                  highlighted
+                />
+              </section>
+            )}
+
+            {history.length > 0 && (
+              <section>
+                <button
+                  type="button"
+                  onClick={() => setHistoryOpen((o) => !o)}
+                  className="flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-neutral-500 hover:text-neutral-700"
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="inline-block rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-700">
-                        {split.status}
-                      </span>
-                      <span className="ml-3 text-sm text-neutral-500">
-                        by {split.createdBy.email}
-                      </span>
-                    </div>
-                    <span className="text-sm text-neutral-500">
-                      {split.contributors.length} contributors &middot;{" "}
-                      {total.toFixed(2)}%
-                    </span>
+                  <span>History ({history.length})</span>
+                  <span aria-hidden>{historyOpen ? "▾" : "▸"}</span>
+                </button>
+                {historyOpen && (
+                  <div className="mt-3 space-y-3">
+                    {history.map((split) => (
+                      <SplitCard
+                        key={split.id}
+                        split={split}
+                        projectId={projectId}
+                        highlighted={false}
+                      />
+                    ))}
                   </div>
-                </Link>
-              );
-            })}
+                )}
+              </section>
+            )}
           </div>
         )}
       </main>

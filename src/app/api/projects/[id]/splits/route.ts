@@ -36,9 +36,25 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     where: { projectId },
     include: {
       contributors: {
-        include: { user: { select: { id: true, email: true } } },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              profile: { select: { displayName: true } },
+            },
+          },
+          confirmation: true,
+        },
+        orderBy: { createdAt: "asc" },
       },
-      createdBy: { select: { id: true, email: true } },
+      createdBy: {
+        select: {
+          id: true,
+          email: true,
+          profile: { select: { displayName: true } },
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
