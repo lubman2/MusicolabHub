@@ -266,6 +266,7 @@ enum TargetType {
 enum ActivityAction {
   file_uploaded
   version_published
+  version_deleted
   member_joined
   comment_added
   split_submitted

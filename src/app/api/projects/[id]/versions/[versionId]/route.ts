@@ -250,3 +250,92 @@ export async function PATCH(
 
   return NextResponse.json(published);
 }
+
+/**
+ * DELETE /api/projects/:id/versions/:versionId — soft-delete a version.
+ *
+ * Owner-only. Sets status to `deleted_soft` and stamps `deletedAt = now`.
+ * The row is retained for 30 days (cleanup handled by a separate job) and
+ * hidden from all non-admin listings via the `deletedAt: null` filter.
+ *
+ * Confirmation: deleting a `published` version requires `?confirm=true`.
+ * Published versions are the current release; the warning avoids owners
+ * accidentally wiping their project's latest release.
+ *
+ * Current-version rule: soft-deleting the currently `published` version
+ * leaves the project with NO published version. Previously superseded
+ * versions are NOT auto-promoted — the owner must explicitly publish a
+ * draft or re-publish a superseded version. This keeps the flow explicit
+ * and avoids surprising promotions.
+ */
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string; versionId: string }> },
+) {
+  const { id: projectId, versionId } = await params;
+
+  const user = await getAuthUser(request);
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId, status: "active" },
+    select: { id: true, ownerId: true },
+  });
+
+  if (!project) {
+    return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
+
+  if (project.ownerId !== user.id) {
+    return NextResponse.json(
+      { error: "Only the project owner can delete versions" },
+      { status: 403 },
+    );
+  }
+
+  const version = await prisma.projectVersion.findFirst({
+    where: { id: versionId, projectId, deletedAt: null },
+    select: { id: true, status: true },
+  });
+
+  if (!version) {
+    return NextResponse.json({ error: "Version not found" }, { status: 404 });
+  }
+
+  const url = new URL(request.url);
+  const confirm = url.searchParams.get("confirm") === "true";
+
+  if (version.status === "published" && !confirm) {
+    return NextResponse.json(
+      {
+        error: "confirmation_required",
+        message:
+          "This is the project's current published version. Deleting it will leave the project with no published version until you publish another. Re-send with ?confirm=true to proceed.",
+      },
+      { status: 409 },
+    );
+  }
+
+  const deleted = await prisma.projectVersion.update({
+    where: { id: versionId },
+    data: {
+      status: "deleted_soft",
+      deletedAt: new Date(),
+    },
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      deletedAt: true,
+    },
+  });
+
+  logActivity(projectId, user.id, "version_deleted", {
+    type: "version",
+    id: versionId,
+  });
+
+  return NextResponse.json(deleted);
+}
