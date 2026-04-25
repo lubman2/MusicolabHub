@@ -48,6 +48,7 @@ model User {
   subscription       Subscription?
   adminActions       AdminAction[]
   notifications      Notification[]
+  passwordResets     PasswordReset[]
 }
 
 model Profile {
@@ -67,6 +68,23 @@ model Profile {
 }
 
 model EmailVerification {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ──────────────────────────────────────────────
+// 01-07: PasswordReset
+// ──────────────────────────────────────────────
+
+model PasswordReset {
   id        String    @id @default(cuid())
   userId    String
   token     String    @unique
