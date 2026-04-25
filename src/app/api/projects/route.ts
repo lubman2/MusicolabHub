@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { logActivity } from "@/lib/activity-log";
+
+const TITLE_MIN = 3;
+const TITLE_MAX = 100;
+const DESCRIPTION_MAX = 5000;
+const GENRE_MAX = 100;
 
 /**
  * GET /api/projects — list projects where the current user is owner or member.
@@ -96,4 +102,111 @@ export async function GET(request: NextRequest) {
       totalPages: Math.ceil(total / limit),
     },
   });
+}
+
+/**
+ * POST /api/projects — create a new project owned by the current user.
+ *
+ * Body:
+ *   title:       string, required, 3–100 chars (after trim)
+ *   description: string | null, optional, max 5000 chars
+ *   genre:       string | null, optional, max 100 chars
+ */
+export async function POST(request: NextRequest) {
+  const user = await getCurrentUser(request);
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let body: { title?: unknown; description?: unknown; genre?: unknown };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  if (typeof body.title !== "string") {
+    return NextResponse.json(
+      { error: "title is required" },
+      { status: 400 },
+    );
+  }
+  const title = body.title.trim();
+  if (title.length < TITLE_MIN) {
+    return NextResponse.json(
+      { error: `title must be at least ${TITLE_MIN} characters` },
+      { status: 400 },
+    );
+  }
+  if (title.length > TITLE_MAX) {
+    return NextResponse.json(
+      { error: `title must be at most ${TITLE_MAX} characters` },
+      { status: 400 },
+    );
+  }
+
+  let description: string | null = null;
+  if (body.description !== undefined && body.description !== null) {
+    if (typeof body.description !== "string") {
+      return NextResponse.json(
+        { error: "description must be a string or null" },
+        { status: 400 },
+      );
+    }
+    if (body.description.length > DESCRIPTION_MAX) {
+      return NextResponse.json(
+        { error: `description must be at most ${DESCRIPTION_MAX} characters` },
+        { status: 400 },
+      );
+    }
+    const trimmed = body.description.trim();
+    description = trimmed.length === 0 ? null : body.description;
+  }
+
+  let genre: string | null = null;
+  if (body.genre !== undefined && body.genre !== null) {
+    if (typeof body.genre !== "string") {
+      return NextResponse.json(
+        { error: "genre must be a string or null" },
+        { status: 400 },
+      );
+    }
+    const trimmed = body.genre.trim();
+    if (trimmed.length > GENRE_MAX) {
+      return NextResponse.json(
+        { error: `genre must be at most ${GENRE_MAX} characters` },
+        { status: 400 },
+      );
+    }
+    genre = trimmed.length === 0 ? null : trimmed;
+  }
+
+  const project = await prisma.project.create({
+    data: {
+      ownerId: user.id,
+      title,
+      description,
+      genre,
+      status: "active",
+    },
+    select: {
+      id: true,
+      ownerId: true,
+      title: true,
+      description: true,
+      genre: true,
+      tags: true,
+      coverImageUrl: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  logActivity(project.id, user.id, "project_created", {
+    type: "project",
+    id: project.id,
+  });
+
+  return NextResponse.json(project, { status: 201 });
 }
