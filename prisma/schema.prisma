@@ -334,6 +334,8 @@ enum ActivityAction {
   member_removed
   project_created
   project_archived
+  project_restored
+  project_deleted
 }
 
 model CommentThread {
