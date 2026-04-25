@@ -17,7 +17,7 @@ const SECTIONS = [
     description: "Hold or release payouts, review marketplace activity.",
   },
   {
-    href: "/admin/audit-log",
+    href: "/admin/audit",
     title: "Audit Log",
     description: "Trail of every administrative action with reason codes.",
   },
