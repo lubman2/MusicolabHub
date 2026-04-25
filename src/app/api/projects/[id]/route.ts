@@ -81,7 +81,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: PROJECT_SELECT,
+    select: {
+      ...PROJECT_SELECT,
+      _count: {
+        select: { members: true, files: true, versions: true },
+      },
+    },
   });
 
   return NextResponse.json(project);
