@@ -1,6 +1,7 @@
 "use client";
 
 import { Nav } from "@/components/nav";
+import { TrialBanner } from "@/components/trial-banner";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, useRef, useCallback } from "react";
@@ -119,6 +120,7 @@ export default function DashboardPage() {
   return (
     <>
       <Nav />
+      <TrialBanner />
       <main className="mx-auto w-full max-w-7xl px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between">

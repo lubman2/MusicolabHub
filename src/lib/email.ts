@@ -149,6 +149,86 @@ export async function sendInvitationEmail(opts: {
 }
 
 /**
+ * Notify a trialing user that their trial ends soon.
+ *
+ * Best-effort: logs failures but does not throw.
+ */
+export async function sendTrialEndingEmail(
+  to: string,
+  opts: { daysRemaining: number; trialEndsAt: Date },
+): Promise<boolean> {
+  const pricingUrl = `${APP_URL}/pricing`;
+  const dayLabel = opts.daysRemaining === 1 ? "day" : "days";
+  const endDate = opts.trialEndsAt.toISOString().slice(0, 10);
+
+  if (!process.env.SMTP_HOST) {
+    console.log(
+      `[email] Trial ending email to ${to}: ${opts.daysRemaining} ${dayLabel} left (ends ${endDate})`,
+    );
+    return true;
+  }
+
+  try {
+    await getTransporter().sendMail({
+      from: FROM,
+      to,
+      subject: `Your MusicCollabHub trial ends in ${opts.daysRemaining} ${dayLabel}`,
+      text: [
+        `Your free trial ends on ${endDate} (${opts.daysRemaining} ${dayLabel} from now).`,
+        "",
+        `Choose a plan to keep working without interruption: ${pricingUrl}`,
+      ].join("\n"),
+      html: `
+        <p>Your free trial ends on <strong>${endDate}</strong>
+        (${opts.daysRemaining} ${dayLabel} from now).</p>
+        <p>Choose a plan to keep working without interruption.</p>
+        <p><a href="${pricingUrl}">View plans</a></p>
+      `,
+    });
+    return true;
+  } catch (error) {
+    console.error("[Email] Failed to send trial ending email:", { to, error });
+    return false;
+  }
+}
+
+/**
+ * Notify a user that their trial has expired.
+ *
+ * Best-effort: logs failures but does not throw.
+ */
+export async function sendTrialExpiredEmail(to: string): Promise<boolean> {
+  const pricingUrl = `${APP_URL}/pricing`;
+
+  if (!process.env.SMTP_HOST) {
+    console.log(`[email] Trial expired email to ${to}: ${pricingUrl}`);
+    return true;
+  }
+
+  try {
+    await getTransporter().sendMail({
+      from: FROM,
+      to,
+      subject: "Your MusicCollabHub trial has expired",
+      text: [
+        "Your free trial has expired and your account is now read-only.",
+        "",
+        `Choose a plan to restore full access: ${pricingUrl}`,
+      ].join("\n"),
+      html: `
+        <p>Your free trial has expired and your account is now read-only.</p>
+        <p>Choose a plan to restore full access.</p>
+        <p><a href="${pricingUrl}">View plans</a></p>
+      `,
+    });
+    return true;
+  } catch (error) {
+    console.error("[Email] Failed to send trial expired email:", { to, error });
+    return false;
+  }
+}
+
+/**
  * Notify the split owner that a contributor has confirmed or rejected their allocation.
  *
  * Best-effort: logs failures but does not throw.

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { expireTrialIfDue, getTrialInfo } from "@/lib/trial-expiry";
 import type { User, Subscription } from "@/generated/prisma/client";
 
 /**
@@ -64,7 +65,7 @@ export function withActiveSubscription(
       return handler(req, subCtx, ...args);
     }
 
-    const subscription = await prisma.subscription.findUnique({
+    let subscription = await prisma.subscription.findUnique({
       where: { userId: user.id },
     });
 
@@ -74,6 +75,9 @@ export function withActiveSubscription(
         { status: 403 },
       );
     }
+
+    // Lazy trial expiry: if trial elapsed, transition to expired before evaluating.
+    subscription = await expireTrialIfDue(subscription);
 
     const { status } = subscription;
 
@@ -128,19 +132,28 @@ export async function getSubscriptionStatus(userId: string): Promise<{
   canWrite: boolean;
   status: string | null;
   graceRemaining: number | null;
+  trial: ReturnType<typeof getTrialInfo>;
 }> {
-  const subscription = await prisma.subscription.findUnique({
+  let subscription = await prisma.subscription.findUnique({
     where: { userId },
   });
 
   if (!subscription) {
-    return { canRead: false, canWrite: false, status: null, graceRemaining: null };
+    return {
+      canRead: false,
+      canWrite: false,
+      status: null,
+      graceRemaining: null,
+      trial: getTrialInfo(null),
+    };
   }
 
+  subscription = await expireTrialIfDue(subscription);
+  const trial = getTrialInfo(subscription);
   const { status, currentPeriodEnd } = subscription;
 
   if (status === "trialing" || status === "active") {
-    return { canRead: true, canWrite: true, status, graceRemaining: null };
+    return { canRead: true, canWrite: true, status, graceRemaining: null, trial };
   }
 
   if (status === "past_due") {
@@ -154,9 +167,10 @@ export async function getSubscriptionStatus(userId: string): Promise<{
       canWrite: graceRemaining > 0,
       status,
       graceRemaining,
+      trial,
     };
   }
 
   // canceled / expired
-  return { canRead: false, canWrite: false, status, graceRemaining: null };
+  return { canRead: false, canWrite: false, status, graceRemaining: null, trial };
 }

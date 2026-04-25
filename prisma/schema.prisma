@@ -398,6 +398,8 @@ enum NotificationType {
   split_submitted
   split_confirmed
   split_rejected
+  trial_ending_soon
+  trial_expired
 }
 
 model Notification {
@@ -500,17 +502,19 @@ enum SubscriptionStatus {
 }
 
 model Subscription {
-  id                   String             @id @default(cuid())
-  userId               String             @unique
-  stripeCustomerId     String?
-  stripeSubscriptionId String?
-  plan                 SubscriptionPlan   @default(trial)
-  status               SubscriptionStatus @default(trialing)
-  trialEndsAt          DateTime?
-  currentPeriodEnd     DateTime?
-  canceledAt           DateTime?
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
+  id                     String             @id @default(cuid())
+  userId                 String             @unique
+  stripeCustomerId       String?
+  stripeSubscriptionId   String?
+  plan                   SubscriptionPlan   @default(trial)
+  status                 SubscriptionStatus @default(trialing)
+  trialEndsAt            DateTime?
+  currentPeriodEnd       DateTime?
+  canceledAt             DateTime?
+  trialEndingNotifiedAt  DateTime?
+  trialExpiredNotifiedAt DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
 
   user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   events PaymentEvent[]
@@ -518,6 +522,7 @@ model Subscription {
   @@index([stripeCustomerId])
   @@index([stripeSubscriptionId])
   @@index([status])
+  @@index([status, trialEndsAt])
 }
 
 model PaymentEvent {

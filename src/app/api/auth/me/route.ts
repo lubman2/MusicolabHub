@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
+import { expireTrialIfDue, getTrialInfo } from "@/lib/trial-expiry";
 
 export async function GET() {
   const session = await getSession();
@@ -27,6 +28,7 @@ export async function GET() {
           priceRange: true,
         },
       },
+      subscription: true,
     },
   });
 
@@ -34,5 +36,26 @@ export async function GET() {
     return NextResponse.json({ error: "User not found" }, { status: 401 });
   }
 
-  return NextResponse.json({ user });
+  // Lazy expiry — keeps client UI honest without waiting for the daily sweep.
+  let subscription = user.subscription ?? null;
+  if (subscription) {
+    subscription = await expireTrialIfDue(subscription);
+  }
+  const trial = getTrialInfo(subscription);
+
+  const { subscription: _omit, ...userPublic } = user;
+  void _omit;
+
+  return NextResponse.json({
+    user: userPublic,
+    subscription: subscription
+      ? {
+          status: subscription.status,
+          plan: subscription.plan,
+          trialEndsAt: subscription.trialEndsAt,
+          currentPeriodEnd: subscription.currentPeriodEnd,
+        }
+      : null,
+    trial,
+  });
 }
