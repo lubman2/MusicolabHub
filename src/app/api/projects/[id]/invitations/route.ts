@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { sendInvitationEmail } from "@/lib/email";
 import { createNotification } from "@/lib/notifications";
+import { expireStaleInvitations } from "@/lib/invitations";
 import type { MemberRole } from "@/generated/prisma/enums";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -91,6 +92,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       { status: 409 },
     );
   }
+
+  // Lazy-expire stale invitations so expired ones don't block new invites.
+  await expireStaleInvitations(projectId);
 
   // Check for pending invitations
   const pendingInvites = await prisma.invitation.findMany({
@@ -219,6 +223,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   if (project.ownerId !== user.id && user.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  await expireStaleInvitations(projectId);
 
   const invitations = await prisma.invitation.findMany({
     where: { projectId },

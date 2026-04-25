@@ -20,6 +20,25 @@ export default function MembersPage() {
   const [loading, setLoading] = useState(true);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+
+  async function handleRevoke(invId: string) {
+    if (!confirm("Revoke this invitation? The recipient will no longer be able to accept it.")) {
+      return;
+    }
+    setRevokingId(invId);
+    const res = await fetch(`/api/projects/${projectId}/invitations/${invId}`, {
+      method: "DELETE",
+      headers: { "x-user-id": "dev-user" },
+    });
+    setRevokingId(null);
+    if (res.ok) {
+      setRefreshKey((k) => k + 1);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Failed to revoke invitation");
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -84,6 +103,13 @@ export default function MembersPage() {
                             expires{" "}
                             {new Date(inv.expiresAt).toLocaleDateString()}
                           </span>
+                          <button
+                            onClick={() => handleRevoke(inv.id)}
+                            disabled={revokingId === inv.id}
+                            className="rounded-md border border-red-200 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            {revokingId === inv.id ? "Revoking..." : "Revoke"}
+                          </button>
                         </div>
                       </div>
                     ))}
