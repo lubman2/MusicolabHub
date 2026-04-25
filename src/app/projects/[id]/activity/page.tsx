@@ -13,6 +13,7 @@ interface Actor {
 
 type ActivityAction =
   | "file_uploaded"
+  | "file_deleted"
   | "version_published"
   | "version_deleted"
   | "member_joined"
@@ -95,6 +96,10 @@ const ACTION_VERBS: Record<ActivityAction, { single: string; plural: (n: number)
   file_uploaded: {
     single: "nahrál(a) soubor",
     plural: (n) => `nahrál(a) ${n} souborů`,
+  },
+  file_deleted: {
+    single: "smazal(a) soubor",
+    plural: (n) => `smazal(a) ${n} souborů`,
   },
   version_published: {
     single: "publikoval(a) verzi",

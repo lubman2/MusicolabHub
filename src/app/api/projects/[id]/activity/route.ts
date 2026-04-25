@@ -12,6 +12,7 @@ const VIEW_ROLES = ["owner", "editor", "commenter", "viewer"] as const;
 
 const VALID_ACTIONS: readonly ActivityAction[] = [
   "file_uploaded",
+  "file_deleted",
   "version_published",
   "version_deleted",
   "member_joined",

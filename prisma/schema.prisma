@@ -265,6 +265,7 @@ enum TargetType {
 
 enum ActivityAction {
   file_uploaded
+  file_deleted
   version_published
   version_deleted
   member_joined
