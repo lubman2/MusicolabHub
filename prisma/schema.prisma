@@ -49,6 +49,7 @@ model User {
   adminActions       AdminAction[]
   notifications      Notification[]
   passwordResets     PasswordReset[]
+  accountRequests    AccountRequest[]
 }
 
 model Profile {
@@ -95,6 +96,44 @@ model PasswordReset {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ──────────────────────────────────────────────
+// 01-08: AccountRequest (GDPR delete/export)
+// ──────────────────────────────────────────────
+
+enum AccountRequestType {
+  delete
+  export
+}
+
+enum AccountRequestStatus {
+  pending_verification
+  pending
+  processing
+  completed
+  cancelled
+}
+
+model AccountRequest {
+  id                   String               @id @default(cuid())
+  userId               String
+  type                 AccountRequestType
+  status               AccountRequestStatus @default(pending)
+  verifyToken          String?              @unique
+  verifyTokenExpiresAt DateTime?
+  verifiedAt           DateTime?
+  scheduledFor         DateTime?
+  exportPayload        Json?
+  completedAt          DateTime?
+  cancelledAt          DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, status])
+  @@index([scheduledFor])
 }
 
 // ──────────────────────────────────────────────

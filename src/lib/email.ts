@@ -70,6 +70,35 @@ export async function sendPasswordResetEmail(
   });
 }
 
+export async function sendAccountDeleteVerifyEmail(
+  to: string,
+  token: string,
+): Promise<void> {
+  const verifyUrl = `${APP_URL}/api/account/delete-request/verify?token=${token}`;
+
+  if (!process.env.SMTP_HOST) {
+    console.log(`[email] Account delete verify email to ${to}: ${verifyUrl}`);
+    return;
+  }
+
+  await getTransporter().sendMail({
+    from: FROM,
+    to,
+    subject: "Confirm your MusicCollabHub account deletion request",
+    html: `
+      <h1>Confirm account deletion</h1>
+      <p>You requested to delete your MusicCollabHub account. Click the link below
+         to confirm. After confirmation, your account will be permanently deleted
+         in 30 days. You can cancel anytime before then from
+         <a href="${APP_URL}/settings/account">Account settings</a>.</p>
+      <p><a href="${verifyUrl}">Confirm deletion</a></p>
+      <p>This link expires in 1 hour.</p>
+      <p>If you didn't request this, ignore this email and review your account
+         security.</p>
+    `,
+  });
+}
+
 /**
  * Send a project invitation email.
  *
