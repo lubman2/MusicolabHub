@@ -23,6 +23,7 @@ type ActivityAction =
   | "split_rejected"
   | "member_invited"
   | "member_removed"
+  | "member_role_changed"
   | "project_created"
   | "project_archived";
 
@@ -136,6 +137,10 @@ const ACTION_VERBS: Record<ActivityAction, { single: string; plural: (n: number)
   member_removed: {
     single: "odebral(a) člena",
     plural: (n) => `odebral(a) ${n} členů`,
+  },
+  member_role_changed: {
+    single: "změnil(a) roli člena",
+    plural: (n) => `změnil(a) role ${n} členů`,
   },
   project_created: {
     single: "vytvořil(a) projekt",

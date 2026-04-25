@@ -22,6 +22,7 @@ const VALID_ACTIONS: readonly ActivityAction[] = [
   "split_rejected",
   "member_invited",
   "member_removed",
+  "member_role_changed",
   "project_created",
   "project_archived",
 ] as const;

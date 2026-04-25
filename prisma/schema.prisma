@@ -332,6 +332,7 @@ enum ActivityAction {
   split_rejected
   member_invited
   member_removed
+  member_role_changed
   project_created
   project_archived
   project_restored

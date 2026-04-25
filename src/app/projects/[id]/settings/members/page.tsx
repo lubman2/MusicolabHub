@@ -14,13 +14,31 @@ interface Invitation {
   inviter: { id: string; email: string };
 }
 
+interface MemberUser {
+  id: string;
+  email: string;
+  profile: { displayName: string | null } | null;
+}
+
+interface Member {
+  id: string;
+  userId: string;
+  role: "owner" | "editor" | "commenter" | "viewer";
+  joinedAt: string;
+  user: MemberUser;
+}
+
+const ASSIGNABLE_ROLES = ["owner", "editor", "commenter", "viewer"] as const;
+
 export default function MembersPage() {
   const { id: projectId } = useParams<{ id: string }>();
+  const [members, setMembers] = useState<Member[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [updatingMemberId, setUpdatingMemberId] = useState<string | null>(null);
 
   async function handleRevoke(invId: string) {
     if (!confirm("Revoke this invitation? The recipient will no longer be able to accept it.")) {
@@ -40,22 +58,73 @@ export default function MembersPage() {
     }
   }
 
+  async function handleRoleChange(memberId: string, role: string) {
+    setUpdatingMemberId(memberId);
+    const res = await fetch(
+      `/api/projects/${projectId}/members/${memberId}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": "dev-user",
+        },
+        body: JSON.stringify({ role }),
+      },
+    );
+    setUpdatingMemberId(null);
+    if (res.ok) {
+      setRefreshKey((k) => k + 1);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Failed to change role");
+      // Force a refresh to revert local state
+      setRefreshKey((k) => k + 1);
+    }
+  }
+
+  async function handleRemoveMember(memberId: string, label: string) {
+    if (!confirm(`Remove ${label} from this project?`)) return;
+    setUpdatingMemberId(memberId);
+    const res = await fetch(
+      `/api/projects/${projectId}/members/${memberId}`,
+      {
+        method: "DELETE",
+        headers: { "x-user-id": "dev-user" },
+      },
+    );
+    setUpdatingMemberId(null);
+    if (res.ok) {
+      setRefreshKey((k) => k + 1);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Failed to remove member");
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     const headers = { "x-user-id": "dev-user" };
 
-    fetch(`/api/projects/${projectId}/invitations`, { headers }).then(
-      async (res) => {
-        if (cancelled) return;
-        if (res.ok) setInvitations(await res.json());
-        setLoading(false);
-      },
-    );
+    Promise.all([
+      fetch(`/api/projects/${projectId}/members`, { headers }).then(
+        async (res) => (res.ok ? ((await res.json()) as Member[]) : []),
+      ),
+      fetch(`/api/projects/${projectId}/invitations`, { headers }).then(
+        async (res) => (res.ok ? ((await res.json()) as Invitation[]) : []),
+      ),
+    ]).then(([m, i]) => {
+      if (cancelled) return;
+      setMembers(m);
+      setInvitations(i);
+      setLoading(false);
+    });
 
     return () => {
       cancelled = true;
     };
   }, [projectId, refreshKey]);
+
+  const ownerCount = members.filter((m) => m.role === "owner").length;
 
   return (
     <>
@@ -75,6 +144,68 @@ export default function MembersPage() {
           <p className="mt-8 text-sm text-neutral-500">Loading...</p>
         ) : (
           <>
+            {/* Members */}
+            <section className="mt-8">
+              <h2 className="text-lg font-semibold">Members</h2>
+              {members.length === 0 ? (
+                <p className="mt-3 text-sm text-neutral-500">No members.</p>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {members.map((m) => {
+                    const label = m.user.profile?.displayName || m.user.email;
+                    const isLastOwner = m.role === "owner" && ownerCount <= 1;
+                    const busy = updatingMemberId === m.id;
+                    return (
+                      <div
+                        key={m.id}
+                        className="flex items-center justify-between rounded-lg border border-neutral-200 p-4"
+                      >
+                        <div>
+                          <p className="text-sm font-medium">{label}</p>
+                          <p className="text-xs text-neutral-500">
+                            {m.user.email}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <select
+                            value={m.role}
+                            onChange={(e) =>
+                              handleRoleChange(m.id, e.target.value)
+                            }
+                            disabled={busy || isLastOwner}
+                            title={
+                              isLastOwner
+                                ? "Cannot demote the last owner"
+                                : undefined
+                            }
+                            className="rounded-md border border-neutral-300 px-2 py-1 text-sm shadow-sm focus:border-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-500 disabled:opacity-50"
+                          >
+                            {ASSIGNABLE_ROLES.map((r) => (
+                              <option key={r} value={r}>
+                                {r}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => handleRemoveMember(m.id, label)}
+                            disabled={busy || isLastOwner}
+                            title={
+                              isLastOwner
+                                ? "Cannot remove the last owner"
+                                : undefined
+                            }
+                            className="rounded-md border border-red-200 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            {busy ? "..." : "Remove"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
             {/* Pending Invitations */}
             {invitations.filter((i) => i.status === "pending").length > 0 && (
               <section className="mt-8">
