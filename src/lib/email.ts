@@ -45,6 +45,30 @@ export async function sendVerificationEmail(
   });
 }
 
+export async function sendPasswordResetEmail(
+  to: string,
+  token: string,
+): Promise<void> {
+  const resetUrl = `${APP_URL}/reset-password?token=${token}`;
+
+  if (!process.env.SMTP_HOST) {
+    console.log(`[email] Password reset email to ${to}: ${resetUrl}`);
+    return;
+  }
+
+  await getTransporter().sendMail({
+    from: FROM,
+    to,
+    subject: "Reset your MusicCollabHub password",
+    html: `
+      <h1>Reset your password</h1>
+      <p>We received a request to reset the password for your MusicCollabHub account.</p>
+      <p><a href="${resetUrl}">Choose a new password</a></p>
+      <p>This link expires in 1 hour. If you didn't request a reset, you can ignore this email — your password will stay the same.</p>
+    `,
+  });
+}
+
 /**
  * Send a project invitation email.
  *
