@@ -3,7 +3,7 @@
 import { Nav } from "@/components/nav";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 interface ProjectDetail {
@@ -34,11 +34,23 @@ function formatDate(iso: string): string {
 
 export default function ProjectDetailPage() {
   const { id: projectId } = useParams<{ id: string }>();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const justCreated = searchParams.get("created") === "1";
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [showCreatedBanner, setShowCreatedBanner] = useState(justCreated);
+
+  useEffect(() => {
+    if (!justCreated) return;
+    // Strip the ?created=1 marker so it doesn't reappear on refresh / share.
+    router.replace(`/projects/${projectId}`);
+    const timer = setTimeout(() => setShowCreatedBanner(false), 5000);
+    return () => clearTimeout(timer);
+  }, [justCreated, projectId, router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +91,22 @@ export default function ProjectDetailPage() {
     <>
       <Nav />
       <main className="mx-auto w-full max-w-5xl px-4 py-8">
+        {showCreatedBanner && (
+          <div
+            role="status"
+            className="mb-6 flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
+          >
+            <span>Project created.</span>
+            <button
+              type="button"
+              onClick={() => setShowCreatedBanner(false)}
+              className="text-green-700 hover:text-green-900"
+              aria-label="Dismiss"
+            >
+              ×
+            </button>
+          </div>
+        )}
         {loading ? (
           <div className="flex justify-center py-20">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900" />

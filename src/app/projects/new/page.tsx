@@ -43,15 +43,22 @@ export default function NewProjectPage() {
     }
 
     setSubmitting(true);
-    const res = await fetch(`/api/projects`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: trimmedTitle,
-        description: description.trim() === "" ? null : description,
-        genre: genre.trim() === "" ? null : genre.trim(),
-      }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`/api/projects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: trimmedTitle,
+          description: description.trim() === "" ? null : description,
+          genre: genre.trim() === "" ? null : genre.trim(),
+        }),
+      });
+    } catch {
+      setSubmitting(false);
+      setError("Network error — please check your connection and try again.");
+      return;
+    }
 
     if (res.status === 401) {
       router.push("/login");
@@ -65,8 +72,25 @@ export default function NewProjectPage() {
       return;
     }
 
-    const project = (await res.json()) as { id: string };
-    router.push(`/projects/${project.id}`);
+    let project: { id?: unknown };
+    try {
+      project = (await res.json()) as { id?: unknown };
+    } catch {
+      setSubmitting(false);
+      setError("Project may have been created, but the response was malformed. Please refresh.");
+      return;
+    }
+
+    if (typeof project.id !== "string" || project.id.length === 0) {
+      setSubmitting(false);
+      setError("Project may have been created, but no ID was returned. Please refresh.");
+      return;
+    }
+
+    // Invalidate any cached server data (e.g. dashboard list) and navigate to
+    // the new project's detail page with a flag so it can show a confirmation.
+    router.refresh();
+    router.push(`/projects/${project.id}?created=1`);
   }
 
   return (
