@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { verifyPassword } from "@/lib/password";
 import { createSessionCookie } from "@/lib/session";
 
 export async function POST(request: Request) {
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
   const user = await prisma.user.findUnique({ where: { email } });
 
-  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+  if (!user || !(await verifyPassword(password, user.passwordHash))) {
     return NextResponse.json(
       { error: "Invalid email or password" },
       { status: 401 },
