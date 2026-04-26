@@ -58,6 +58,33 @@ npm install
 npm run dev
 ```
 
+## Local development → Demo data
+
+Populate the dev database with demo users, a project, and seeded
+collaboration state for manual UI testing:
+
+```bash
+npm run db:seed
+```
+
+The seed is idempotent — running it twice does not error or duplicate.
+It requires `DATABASE_URL` (see `.env.example`) and assumes migrations
+have already been applied.
+
+**Demo credentials** (all share the same password):
+
+| Email                  | Role  | Notes                                        |
+|------------------------|-------|----------------------------------------------|
+| `admin@example.com`    | admin | Platform admin                               |
+| `creator1@example.com` | user  | Owner of the demo project, on Pro trial      |
+| `creator2@example.com` | user  | Editor on the demo project, vocalist         |
+
+**Password:** `Demo1234!`
+
+The seed creates one demo project (`Midnight Sessions`) with a file, a
+published version, an open comment thread, and a draft 50/50 ownership
+split between the two creators.
+
 ## Licence
 
 Proprietary — všechna práva vyhrazena.
