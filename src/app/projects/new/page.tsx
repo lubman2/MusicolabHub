@@ -43,13 +43,15 @@ export default function NewProjectPage() {
     }
 
     setSubmitting(true);
+    const trimmedDescription = description.trim();
+    const trimmedGenre = genre.trim();
     const res = await fetch(`/api/projects`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: trimmedTitle,
-        description: description.trim() === "" ? null : description,
-        genre: genre.trim() === "" ? null : genre.trim(),
+        description: trimmedDescription === "" ? null : trimmedDescription,
+        genre: trimmedGenre === "" ? null : trimmedGenre,
       }),
     });
 
@@ -66,7 +68,10 @@ export default function NewProjectPage() {
     }
 
     const project = (await res.json()) as { id: string };
-    router.push(`/projects/${project.id}`);
+    // Invalidate cached project lists so the new project shows when the
+    // user returns to /dashboard.
+    router.refresh();
+    router.push(`/projects/${project.id}?created=1`);
   }
 
   return (

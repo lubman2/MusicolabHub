@@ -41,6 +41,7 @@ async function fetchProjectsApi(
 ): Promise<PaginatedResponse> {
   const res = await fetch(
     `/api/projects?filter=${filter}&page=${page}&limit=12&sort=updatedAt&order=desc`,
+    { cache: "no-store" },
   );
   if (!res.ok) {
     if (res.status === 401) {

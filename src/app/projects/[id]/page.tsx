@@ -3,7 +3,7 @@
 import { Nav } from "@/components/nav";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 interface ProjectDetail {
@@ -34,11 +34,20 @@ function formatDate(iso: string): string {
 
 export default function ProjectDetailPage() {
   const { id: projectId } = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const justCreated = searchParams.get("created") === "1";
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [showCreatedToast, setShowCreatedToast] = useState(justCreated);
+
+  useEffect(() => {
+    if (!showCreatedToast) return;
+    const timer = setTimeout(() => setShowCreatedToast(false), 4000);
+    return () => clearTimeout(timer);
+  }, [showCreatedToast]);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +88,14 @@ export default function ProjectDetailPage() {
     <>
       <Nav />
       <main className="mx-auto w-full max-w-5xl px-4 py-8">
+        {showCreatedToast && (
+          <div
+            role="status"
+            className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
+          >
+            Projekt byl úspěšně založen.
+          </div>
+        )}
         {loading ? (
           <div className="flex justify-center py-20">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900" />
