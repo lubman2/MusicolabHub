@@ -12,7 +12,18 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Playwright artifacts.
+    "playwright-report/**",
+    "test-results/**",
   ]),
+  // Playwright `test.extend` fixtures pass a `use` callback that the
+  // react-hooks lint rule mistakes for a hook; silence in test files only.
+  {
+    files: ["e2e/**/*.ts"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;
