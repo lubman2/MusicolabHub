@@ -54,6 +54,10 @@ model User {
   gigApplications    GigApplication[]
   hiresAsBuyer       Hire[]              @relation("HireBuyer")
   hiresAsTalent      Hire[]              @relation("HireTalent")
+  connectAccount     ConnectAccount?
+  paymentsAsBuyer    PaymentRecord[]     @relation("PaymentBuyer")
+  paymentsAsTalent   PaymentRecord[]     @relation("PaymentTalent")
+  payoutsAsTalent    PayoutRecord[]      @relation("PayoutTalent")
 }
 
 model Profile {
@@ -350,6 +354,15 @@ enum ActivityAction {
   gig_hire_approved
   gig_hire_cancelled
   gig_hire_access_granted
+  hire_payment_succeeded
+  hire_payment_failed
+  hire_payout_scheduled
+  hire_payout_paid
+  hire_payout_held
+  hire_payout_released
+  hire_payout_failed
+  connect_onboarding_started
+  connect_onboarding_completed
 }
 
 model CommentThread {
@@ -422,6 +435,15 @@ enum NotificationType {
   gig_hire_approved
   gig_hire_cancelled
   gig_hire_access_granted
+  hire_payment_succeeded
+  hire_payment_failed
+  hire_payout_scheduled
+  hire_payout_paid
+  hire_payout_held
+  hire_payout_released
+  hire_payout_failed
+  connect_kyc_required
+  connect_verified
 }
 
 model Notification {
@@ -549,14 +571,18 @@ model Subscription {
 
 model PaymentEvent {
   id             String    @id @default(cuid())
-  subscriptionId String
+  subscriptionId String?
+  paymentId      String?
   stripeEventId  String    @unique
   type           String
   payload        Json
   processedAt    DateTime?
   createdAt      DateTime  @default(now())
 
-  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  subscription Subscription?  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  payment      PaymentRecord? @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
 }
 
 // ──────────────────────────────────────────────
@@ -711,7 +737,136 @@ model Hire {
   application GigApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   buyer       User           @relation("HireBuyer", fields: [buyerId], references: [id])
   talent      User           @relation("HireTalent", fields: [talentId], references: [id])
+  payment     PaymentRecord?
 
   @@index([buyerId, status])
   @@index([talentId, status])
+}
+
+// ──────────────────────────────────────────────
+// 12-01: ConnectAccount (Stripe Connect onboarding for talent payouts)
+// ──────────────────────────────────────────────
+
+enum ConnectStatus {
+  not_started
+  onboarding
+  pending_verification
+  verified
+  restricted
+  disabled
+}
+
+model ConnectAccount {
+  id               String        @id @default(cuid())
+  userId           String        @unique
+  stripeAccountId  String?       @unique
+  status           ConnectStatus @default(not_started)
+  payoutsEnabled   Boolean       @default(false)
+  chargesEnabled   Boolean       @default(false)
+  detailsSubmitted Boolean       @default(false)
+  country          String?
+  defaultCurrency  String?
+  requirementsDue  String[]      @default([])
+  disabledReason   String?
+  lastSyncedAt     DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+// ──────────────────────────────────────────────
+// 12-02: PaymentRecord (buyer pays for hire — 1:1 with Hire)
+// ──────────────────────────────────────────────
+
+enum PaymentStatus {
+  requires_payment
+  processing
+  succeeded
+  failed
+  refunded
+  cancelled
+}
+
+model PaymentRecord {
+  id                     String        @id @default(cuid())
+  hireId                 String        @unique
+  buyerId                String
+  talentId               String
+  amount                 Int
+  currency               String        @default("USD")
+  platformFee            Int           @default(0)
+  status                 PaymentStatus @default(requires_payment)
+  stripeCheckoutSessionId String?      @unique
+  stripePaymentIntentId  String?       @unique
+  stripeChargeId         String?
+  failureCode            String?
+  failureMessage         String?
+  paidAt                 DateTime?
+  refundedAt             DateTime?
+  cancelledAt            DateTime?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  hire   Hire           @relation(fields: [hireId], references: [id], onDelete: Cascade)
+  buyer  User           @relation("PaymentBuyer", fields: [buyerId], references: [id])
+  talent User           @relation("PaymentTalent", fields: [talentId], references: [id])
+  payout PayoutRecord?
+  events PaymentEvent[]
+
+  @@index([buyerId, status])
+  @@index([talentId, status])
+  @@index([status])
+}
+
+// ──────────────────────────────────────────────
+// 12-03: PayoutRecord (platform → talent — 1:1 with PaymentRecord)
+// ──────────────────────────────────────────────
+
+enum PayoutStatus {
+  blocked
+  scheduled
+  in_transit
+  paid
+  failed
+  reversed
+}
+
+enum PayoutBlockReason {
+  connect_onboarding_incomplete
+  kyc_pending
+  awaiting_buyer_approval
+  admin_hold
+}
+
+model PayoutRecord {
+  id                String             @id @default(cuid())
+  paymentId         String             @unique
+  talentId          String
+  amount            Int
+  currency          String             @default("USD")
+  status            PayoutStatus       @default(blocked)
+  blockReason       PayoutBlockReason?
+  stripeTransferId  String?            @unique
+  scheduledFor      DateTime?
+  autoReleaseAt     DateTime?
+  releasedAt        DateTime?
+  paidAt            DateTime?
+  failedAt          DateTime?
+  failureCode       String?
+  failureMessage    String?
+  heldAt            DateTime?
+  heldByActorId     String?
+  reversedAt        DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  payment PaymentRecord @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  talent  User          @relation("PayoutTalent", fields: [talentId], references: [id])
+
+  @@index([talentId, status])
+  @@index([status, autoReleaseAt])
+  @@index([status, scheduledFor])
 }
