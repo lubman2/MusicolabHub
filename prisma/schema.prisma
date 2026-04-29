@@ -51,6 +51,9 @@ model User {
   passwordResets     PasswordReset[]
   accountRequests    AccountRequest[]
   gigs               Gig[]
+  gigApplications    GigApplication[]
+  hiresAsBuyer       Hire[]              @relation("HireBuyer")
+  hiresAsTalent      Hire[]              @relation("HireTalent")
 }
 
 model Profile {
@@ -338,6 +341,15 @@ enum ActivityAction {
   project_archived
   project_restored
   project_deleted
+  gig_application_submitted
+  gig_application_withdrawn
+  gig_application_accepted
+  gig_application_rejected
+  gig_hire_started
+  gig_hire_delivered
+  gig_hire_approved
+  gig_hire_cancelled
+  gig_hire_access_granted
 }
 
 model CommentThread {
@@ -402,6 +414,14 @@ enum NotificationType {
   split_rejected
   trial_ending_soon
   trial_expired
+  gig_application_received
+  gig_application_accepted
+  gig_application_rejected
+  gig_hire_started
+  gig_hire_delivered
+  gig_hire_approved
+  gig_hire_cancelled
+  gig_hire_access_granted
 }
 
 model Notification {
@@ -585,9 +605,26 @@ model AdminAction {
 enum GigStatus {
   draft
   published
+  hired
   closed
   cancelled
   suspended
+}
+
+enum ApplicationStatus {
+  submitted
+  withdrawn
+  accepted
+  rejected
+  expired
+}
+
+enum HireStatus {
+  awaiting_start
+  in_progress
+  delivered
+  approved
+  cancelled
 }
 
 model Gig {
@@ -610,10 +647,71 @@ model Gig {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  creator User    @relation(fields: [creatorId], references: [id])
+  project      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator      User             @relation(fields: [creatorId], references: [id])
+  applications GigApplication[]
+  hire         Hire?
 
   @@index([projectId])
   @@index([creatorId])
   @@index([status, publishedAt])
+}
+
+// ──────────────────────────────────────────────
+// 11-01: GigApplication (Stream 2 — Hiring)
+// ──────────────────────────────────────────────
+
+model GigApplication {
+  id          String            @id @default(cuid())
+  gigId       String
+  applicantId String
+  coverNote   String
+  proposedFee Int?
+  status      ApplicationStatus @default(submitted)
+  submittedAt DateTime          @default(now())
+  decidedAt   DateTime?
+  withdrawnAt DateTime?
+  expiredAt   DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  gig       Gig   @relation(fields: [gigId], references: [id], onDelete: Cascade)
+  applicant User  @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  hire      Hire?
+
+  @@unique([gigId, applicantId])
+  @@index([gigId, status])
+  @@index([applicantId, status])
+}
+
+// ──────────────────────────────────────────────
+// 11-02: Hire (delivery contract)
+// ──────────────────────────────────────────────
+
+model Hire {
+  id            String     @id @default(cuid())
+  gigId         String     @unique
+  applicationId String     @unique
+  buyerId       String
+  talentId      String
+  agreedFee     Int?
+  feeCurrency   String     @default("USD")
+  status        HireStatus @default(awaiting_start)
+  startedAt     DateTime?
+  deliveredAt   DateTime?
+  approvedAt    DateTime?
+  cancelledAt   DateTime?
+  deliveryNote  String?
+  cancelReason  String?
+  memberRole    MemberRole @default(commenter)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  gig         Gig            @relation(fields: [gigId], references: [id], onDelete: Cascade)
+  application GigApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  buyer       User           @relation("HireBuyer", fields: [buyerId], references: [id])
+  talent      User           @relation("HireTalent", fields: [talentId], references: [id])
+
+  @@index([buyerId, status])
+  @@index([talentId, status])
 }

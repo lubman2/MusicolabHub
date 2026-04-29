@@ -163,10 +163,27 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     );
   }
 
-  const updated = await prisma.gig.update({
-    where: { id: gigId },
-    data,
-    select: GIG_PUBLIC_SELECT,
+  // Cancelling a published gig must expire any open applications so
+  // they don't linger as actionable items. We do this in the same txn
+  // as the gig update for consistency.
+  const isCancellingPublished =
+    nextStatus === "cancelled" && auth.gig.status === "published";
+  const isClosingPublished =
+    nextStatus === "closed" && auth.gig.status === "published";
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const g = await tx.gig.update({
+      where: { id: gigId },
+      data,
+      select: GIG_PUBLIC_SELECT,
+    });
+    if (isCancellingPublished || isClosingPublished) {
+      await tx.gigApplication.updateMany({
+        where: { gigId, status: "submitted" },
+        data: { status: "expired", expiredAt: new Date() },
+      });
+    }
+    return g;
   });
 
   return NextResponse.json(updated);
