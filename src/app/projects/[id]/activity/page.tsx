@@ -24,9 +24,13 @@ type ActivityAction =
   | "member_invited"
   | "member_removed"
   | "project_created"
-  | "project_archived";
+  | "project_archived"
+  | "gig_created"
+  | "gig_published"
+  | "gig_closed"
+  | "gig_cancelled";
 
-type TargetType = "project" | "file" | "version" | "split" | "member";
+type TargetType = "project" | "file" | "version" | "split" | "member" | "gig";
 
 interface ActivityEntry {
   id: string;
@@ -145,6 +149,22 @@ const ACTION_VERBS: Record<ActivityAction, { single: string; plural: (n: number)
     single: "archivoval(a) projekt",
     plural: (n) => `archivoval(a) projekt (${n}×)`,
   },
+  gig_created: {
+    single: "vytvořil(a) gig",
+    plural: (n) => `vytvořil(a) ${n} gigů`,
+  },
+  gig_published: {
+    single: "publikoval(a) gig",
+    plural: (n) => `publikoval(a) ${n} gigů`,
+  },
+  gig_closed: {
+    single: "uzavřel(a) gig",
+    plural: (n) => `uzavřel(a) ${n} gigů`,
+  },
+  gig_cancelled: {
+    single: "zrušil(a) gig",
+    plural: (n) => `zrušil(a) ${n} gigů`,
+  },
 };
 
 function targetHref(
@@ -162,6 +182,8 @@ function targetHref(
       return `/projects/${projectId}/splits/${entry.targetId}`;
     case "member":
       return `/projects/${projectId}/settings/members`;
+    case "gig":
+      return `/gigs/${entry.targetId}`;
     default:
       return null;
   }
@@ -172,6 +194,7 @@ function targetLabel(entry: ActivityEntry): string {
   if (typeof meta.name === "string" && meta.name.trim().length > 0) return meta.name;
   if (typeof meta.filename === "string" && meta.filename.trim().length > 0) return meta.filename;
   if (typeof meta.title === "string" && meta.title.trim().length > 0) return meta.title;
+  if (typeof meta.gigTitle === "string" && meta.gigTitle.trim().length > 0) return meta.gigTitle;
   switch (entry.targetType) {
     case "file":
       return "soubor";
@@ -183,6 +206,8 @@ function targetLabel(entry: ActivityEntry): string {
       return "člena";
     case "project":
       return "projekt";
+    case "gig":
+      return "gig";
     default:
       return entry.targetType;
   }

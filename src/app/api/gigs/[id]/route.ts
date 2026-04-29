@@ -7,7 +7,8 @@ import {
   loadGigForOwner,
   parseGigPatch,
 } from "@/lib/gigs";
-import type { GigStatus } from "@/generated/prisma/client";
+import { logActivity } from "@/lib/activity-log";
+import type { ActivityAction, GigStatus } from "@/generated/prisma/client";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -185,6 +186,27 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
     return g;
   });
+
+  if (nextStatus) {
+    const lifecycleAction: Record<
+      "published" | "closed" | "cancelled",
+      ActivityAction
+    > = {
+      published: "gig_published",
+      closed: "gig_closed",
+      cancelled: "gig_cancelled",
+    };
+    const action = lifecycleAction[nextStatus as keyof typeof lifecycleAction];
+    if (action) {
+      await logActivity(
+        auth.gig.projectId,
+        user.id,
+        action,
+        { type: "gig", id: gigId },
+        { gigTitle: updated.title, fromStatus: auth.gig.status },
+      );
+    }
+  }
 
   return NextResponse.json(updated);
 }
