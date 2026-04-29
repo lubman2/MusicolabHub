@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { GIG_PUBLIC_SELECT, parseGigDraft } from "@/lib/gigs";
+import { logActivity } from "@/lib/activity-log";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -111,6 +112,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     },
     select: GIG_PUBLIC_SELECT,
   });
+
+  await logActivity(
+    projectId,
+    user.id,
+    "gig_created",
+    { type: "gig", id: gig.id },
+    { gigTitle: gig.title },
+  );
 
   return NextResponse.json(gig, { status: 201 });
 }

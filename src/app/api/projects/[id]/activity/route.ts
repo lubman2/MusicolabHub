@@ -24,9 +24,20 @@ const VALID_ACTIONS: readonly ActivityAction[] = [
   "member_removed",
   "project_created",
   "project_archived",
+  "gig_created",
+  "gig_published",
+  "gig_closed",
+  "gig_cancelled",
 ] as const;
 
-const VALID_TARGET_TYPES = ["project", "file", "version", "split", "member"] as const;
+const VALID_TARGET_TYPES = [
+  "project",
+  "file",
+  "version",
+  "split",
+  "member",
+  "gig",
+] as const;
 
 /**
  * GET /api/projects/[id]/activity

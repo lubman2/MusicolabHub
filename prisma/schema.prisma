@@ -345,6 +345,10 @@ enum ActivityAction {
   project_archived
   project_restored
   project_deleted
+  gig_created
+  gig_published
+  gig_closed
+  gig_cancelled
   gig_application_submitted
   gig_application_withdrawn
   gig_application_accepted
