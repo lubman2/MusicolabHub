@@ -133,6 +133,7 @@ function ProjectDetailView({ project }: { project: ProjectDetail }) {
     { label: "Verze", href: `/projects/${project.id}/versions` },
     { label: "Aktivita", href: `/projects/${project.id}/activity` },
     { label: "Splits", href: `/projects/${project.id}/splits` },
+    { label: "Gigs", href: `/projects/${project.id}/gigs` },
     { label: "Nastavení", href: `/projects/${project.id}/settings` },
   ];
 
