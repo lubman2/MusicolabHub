@@ -77,6 +77,10 @@ export async function generatePresignedUploadUrl(
  * @returns `true` if the object exists, `false` otherwise.
  */
 export async function checkFileExists(key: string): Promise<boolean> {
+  // E2E bypass: skip the real S3 HEAD when running under the Playwright suite.
+  // Set E2E_TEST_MODE=1 in the test runner so confirm() reports "ready" without
+  // a real bucket. Never set this in production.
+  if (process.env.E2E_TEST_MODE === "1") return true;
   try {
     await s3.send(new HeadObjectCommand({ Bucket: S3_BUCKET, Key: key }));
     return true;
