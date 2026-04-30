@@ -1,16 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runTrialExpirySweep } from "@/lib/trial-expiry";
 
-/**
- * POST /api/cron/expire-trials
- *
- * Sweeps trialing subscriptions: marks expired ones, sends "ending soon" emails
- * 3 days out, and sends "expired" emails on the day of expiration.
- *
- * Auth: requires `Authorization: Bearer <CRON_SECRET>` header.
- * Intended to run daily via an external scheduler (Vercel Cron, GitHub Actions, etc.).
- */
-export async function POST(req: NextRequest) {
+async function handle(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
     return NextResponse.json(
@@ -27,3 +18,8 @@ export async function POST(req: NextRequest) {
   const result = await runTrialExpirySweep();
   return NextResponse.json({ ok: true, ...result });
 }
+
+// Vercel Cron invokes the route as GET with `Authorization: Bearer $CRON_SECRET`
+// when CRON_SECRET is set in project env. Manual / external schedulers may POST.
+export const GET = handle;
+export const POST = handle;
