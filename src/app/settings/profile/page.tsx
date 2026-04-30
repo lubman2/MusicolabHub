@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { resolveAvatarUrl } from "@/lib/profile";
 import { ProfileForm } from "./profile-form";
+import { PortfolioSamples } from "./portfolio-samples";
 
 export const dynamic = "force-dynamic";
 
@@ -18,12 +19,23 @@ export default async function ProfileSettingsPage() {
       status: true,
       profile: {
         select: {
+          id: true,
           displayName: true,
           headline: true,
           bio: true,
           avatarUrl: true,
           skills: true,
           genres: true,
+          portfolioSamples: {
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+            select: {
+              id: true,
+              title: true,
+              url: true,
+              mimeType: true,
+              sortOrder: true,
+            },
+          },
         },
       },
     },
@@ -60,6 +72,16 @@ export default async function ProfileSettingsPage() {
             }}
           />
         </div>
+
+        <section className="mt-12">
+          <h2 className="text-lg font-semibold text-neutral-900">Portfolio</h2>
+          <p className="mt-1 text-sm text-neutral-500">
+            Up to 10 work samples or links shown on your public profile.
+          </p>
+          <div className="mt-4">
+            <PortfolioSamples initial={user.profile?.portfolioSamples ?? []} />
+          </div>
+        </section>
       </main>
     </>
   );

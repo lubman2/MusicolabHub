@@ -28,6 +28,15 @@ export default async function PublicProfilePage({ params }: Props) {
           avatarUrl: true,
           skills: true,
           genres: true,
+          portfolioSamples: {
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+            select: {
+              id: true,
+              title: true,
+              url: true,
+              mimeType: true,
+            },
+          },
         },
       },
     },
@@ -108,9 +117,37 @@ export default async function PublicProfilePage({ params }: Props) {
             )}
 
             <Section title="Portfolio">
-              <p className="text-sm text-neutral-500">
-                Portfolio samples coming soon.
-              </p>
+              {user.profile.portfolioSamples.length === 0 ? (
+                <p className="text-sm text-neutral-500">
+                  No portfolio samples yet.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {user.profile.portfolioSamples.map((sample) => (
+                    <li
+                      key={sample.id}
+                      className="rounded-md border border-neutral-200 px-3 py-2"
+                    >
+                      <a
+                        href={sample.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block text-sm font-medium text-neutral-900 hover:underline"
+                      >
+                        {sample.title}
+                      </a>
+                      <div className="mt-0.5 flex items-center gap-2 text-xs text-neutral-500">
+                        <span className="truncate">{sample.url}</span>
+                        {sample.mimeType && (
+                          <span className="rounded-full bg-neutral-100 px-2 py-0.5">
+                            {sample.mimeType}
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </Section>
           </div>
         </header>
