@@ -73,7 +73,27 @@ model Profile {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  portfolioSamples PortfolioSample[]
+}
+
+// ──────────────────────────────────────────────
+// 10-02: PortfolioSample
+// ──────────────────────────────────────────────
+
+model PortfolioSample {
+  id        String   @id @default(cuid())
+  profileId String
+  title     String
+  url       String
+  mimeType  String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, sortOrder])
 }
 
 model EmailVerification {
