@@ -9,6 +9,7 @@ const ALLOWED_ACTION_TYPES = [
   "unsuspend_account",
   "suspend_gig",
   "unpublish_gig",
+  "restore_gig",
   "restrict_project",
   "restore_project",
   "hold_payout",
