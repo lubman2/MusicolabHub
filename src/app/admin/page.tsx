@@ -14,7 +14,12 @@ const SECTIONS = [
   {
     href: "/admin/payments",
     title: "Payments",
-    description: "Hold or release payouts, review marketplace activity.",
+    description: "Subscription and platform billing lookup.",
+  },
+  {
+    href: "/admin/payouts",
+    title: "Payouts",
+    description: "Marketplace payouts — hold, release, and audit talent earnings.",
   },
   {
     href: "/admin/audit",
