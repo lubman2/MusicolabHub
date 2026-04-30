@@ -58,6 +58,17 @@ npm install
 npm run dev
 ```
 
+## Deployment
+
+Production / preview deploy on Vercel — full step-by-step walkthrough (Neon,
+S3, Stripe, Mailtrap, smoke test) in [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+```bash
+vercel                       # preview deploy
+vercel --prod                # production deploy
+./scripts/deploy-verify.sh https://<deploy-url>   # post-deploy smoke test
+```
+
 ## Local development → Demo data
 
 Populate the dev database with demo users, a project, and seeded
