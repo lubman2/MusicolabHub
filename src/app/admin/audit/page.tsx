@@ -10,6 +10,7 @@ type ActionType =
   | "unsuspend_account"
   | "suspend_gig"
   | "unpublish_gig"
+  | "restore_gig"
   | "restrict_project"
   | "restore_project"
   | "hold_payout"
@@ -54,6 +55,7 @@ const ACTION_OPTIONS: readonly { value: ActionType | ""; label: string }[] = [
   { value: "unsuspend_account", label: "Unsuspend account" },
   { value: "suspend_gig", label: "Suspend gig" },
   { value: "unpublish_gig", label: "Unpublish gig" },
+  { value: "restore_gig", label: "Restore gig" },
   { value: "restrict_project", label: "Restrict project" },
   { value: "restore_project", label: "Restore project" },
   { value: "hold_payout", label: "Hold payout" },
@@ -63,7 +65,7 @@ const ACTION_OPTIONS: readonly { value: ActionType | ""; label: string }[] = [
 const TARGET_HREF: Record<TargetType, ((id: string) => string) | null> = {
   user: (id) => `/admin/users/${id}`,
   project: (id) => `/admin/projects/${id}`,
-  gig: null,
+  gig: (id) => `/admin/gigs/${id}`,
   payout: null,
 };
 
@@ -215,9 +217,7 @@ export default function AdminAuditPage() {
             <input
               type="text"
               value={draft.targetId}
-              onChange={(e) =>
-                setDraft({ ...draft, targetId: e.target.value })
-              }
+              onChange={(e) => setDraft({ ...draft, targetId: e.target.value })}
               placeholder="cuid…"
               className="w-56 rounded-md border border-neutral-300 bg-white px-3 py-1.5 font-mono text-sm normal-case text-neutral-900 focus:border-neutral-500 focus:outline-none"
             />

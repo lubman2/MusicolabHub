@@ -13,6 +13,7 @@ const SECTIONS: readonly AdminSection[] = [
   { href: "/admin", label: "Overview", exact: true },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/projects", label: "Projects" },
+  { href: "/admin/gigs", label: "Gigs" },
   { href: "/admin/payments", label: "Payments" },
   { href: "/admin/payouts", label: "Payouts" },
   { href: "/admin/audit", label: "Audit Log" },
