@@ -90,10 +90,11 @@ export default function NewProjectPage() {
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
           <div>
-            <label className="block text-sm font-medium text-neutral-700">
+            <label htmlFor="project-title" className="block text-sm font-medium text-neutral-700">
               Title <span className="text-red-600">*</span>
             </label>
             <input
+              id="project-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -109,10 +110,11 @@ export default function NewProjectPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-neutral-700">
+            <label htmlFor="project-description" className="block text-sm font-medium text-neutral-700">
               Description
             </label>
             <textarea
+              id="project-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               maxLength={DESCRIPTION_MAX}
@@ -122,10 +124,11 @@ export default function NewProjectPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-neutral-700">
+            <label htmlFor="project-genre" className="block text-sm font-medium text-neutral-700">
               Genre
             </label>
             <input
+              id="project-genre"
               type="text"
               value={genre}
               onChange={(e) => setGenre(e.target.value)}
