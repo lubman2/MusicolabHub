@@ -152,3 +152,86 @@ export async function sendConfirmationResponseEmail(opts: {
     `,
   });
 }
+
+/**
+ * Send trial ending soon notification.
+ * Best-effort: logs failures but does not throw.
+ */
+export async function sendTrialEndingEmail(opts: {
+  to: string;
+  daysLeft: number;
+}): Promise<boolean> {
+  return sendMail({
+    to: opts.to,
+    subject: "Your MusicCollabHub trial ends soon",
+    text: `Your free trial ends in ${opts.daysLeft} day(s). Upgrade now to keep your projects.`,
+    html: `
+      <p>Your MusicCollabHub free trial ends in <strong>${opts.daysLeft} day(s)</strong>.</p>
+      <p>Upgrade now to keep access to your projects and collaborators.</p>
+      <p><a href="${APP_URL}/pricing">View Plans</a></p>
+    `,
+  });
+}
+
+/**
+ * Send trial expired notification.
+ * Best-effort: logs failures but does not throw.
+ */
+export async function sendTrialExpiredEmail(opts: {
+  to: string;
+}): Promise<boolean> {
+  return sendMail({
+    to: opts.to,
+    subject: "Your MusicCollabHub trial has expired",
+    text: "Your free trial has expired. Upgrade to restore access.",
+    html: `
+      <p>Your MusicCollabHub free trial has <strong>expired</strong>.</p>
+      <p>Your projects and data are safe. Upgrade to restore full access.</p>
+      <p><a href="${APP_URL}/pricing">View Plans</a></p>
+    `,
+  });
+}
+
+/**
+ * Send account deletion verification email.
+ * Best-effort: logs failures but does not throw.
+ */
+export async function sendAccountDeleteVerifyEmail(opts: {
+  to: string;
+  verifyCode: string;
+  requestId: string;
+}): Promise<boolean> {
+  return sendMail({
+    to: opts.to,
+    subject: "Confirm your MusicCollabHub account deletion",
+    text: `Enter code ${opts.verifyCode} to confirm account deletion. Request ID: ${opts.requestId}`,
+    html: `
+      <p>You requested to delete your MusicCollabHub account.</p>
+      <p>Verification code: <strong>${opts.verifyCode}</strong></p>
+      <p>Request ID: ${opts.requestId}</p>
+      <p>If you didn't request this, ignore this email.</p>
+    `,
+  });
+}
+
+/**
+ * Send password reset email.
+ * Best-effort: logs failures but does not throw.
+ */
+export async function sendPasswordResetEmail(opts: {
+  to: string;
+  token: string;
+}): Promise<boolean> {
+  const resetUrl = `${APP_URL}/reset-password?token=${opts.token}`;
+  return sendMail({
+    to: opts.to,
+    subject: "Reset your MusicCollabHub password",
+    text: `Click the link to reset your password: ${resetUrl}`,
+    html: `
+      <p>Click the link below to reset your MusicCollabHub password:</p>
+      <p><a href="${resetUrl}">Reset Password</a></p>
+      <p>This link expires in 1 hour.</p>
+      <p>If you didn't request a password reset, ignore this email.</p>
+    `,
+  });
+}
