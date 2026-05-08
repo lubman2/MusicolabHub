@@ -1,4 +1,4 @@
-import type { ApplicationStatus, Prisma } from "@/generated/prisma/client";
+import type { ApplicationStatus, Prisma } from "@/generated/prisma";
 
 export const APPLICATION_COVER_NOTE_MIN = 1;
 export const APPLICATION_COVER_NOTE_MAX = 5000;

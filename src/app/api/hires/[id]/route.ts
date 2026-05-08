@@ -12,7 +12,7 @@ import { createNotification } from "@/lib/notifications";
 import { getStripe } from "@/lib/stripe";
 import { canReleasePayoutTo } from "@/lib/connect";
 import { autoReleaseDeadline } from "@/lib/payouts";
-import type { HireStatus } from "@/generated/prisma/client";
+import type { HireStatus } from "@/generated/prisma";
 
 type RouteParams = { params: Promise<{ id: string }> };
 

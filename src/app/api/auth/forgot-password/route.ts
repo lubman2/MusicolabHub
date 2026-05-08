@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       data: { userId: user.id, token, expiresAt },
     });
 
-    sendPasswordResetEmail(email, token).catch((err) => {
+    sendPasswordResetEmail({ to: email, token }).catch((err) => {
       console.error("Failed to send password reset email:", err);
     });
   }

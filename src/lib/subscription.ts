@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { expireTrialIfDue, getTrialInfo } from "@/lib/trial-expiry";
-import type { User, Subscription } from "@/generated/prisma/client";
+import type { User, Subscription } from "@/generated/prisma";
 
 /**
  * Subscription access levels:

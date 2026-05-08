@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { Subscription } from "@/generated/prisma/client";
+import type { Subscription } from "@/generated/prisma";
 import { sendTrialEndingEmail, sendTrialExpiredEmail } from "@/lib/email";
 import { createNotification } from "@/lib/notifications";
 
@@ -114,7 +114,7 @@ export async function notifyEndingTrials(now: Date = new Date()): Promise<number
       Math.ceil((sub.trialEndsAt.getTime() - now.getTime()) / DAY_MS),
     );
 
-    await sendTrialEndingEmail(sub.user.email, { daysRemaining, trialEndsAt: sub.trialEndsAt });
+    await sendTrialEndingEmail({ to: sub.user.email, daysLeft: daysRemaining });
     await createNotification({
       userId: sub.user.id,
       type: "trial_ending_soon",
@@ -150,7 +150,7 @@ export async function notifyExpiredTrials(now: Date = new Date()): Promise<numbe
 
   let sent = 0;
   for (const sub of due) {
-    await sendTrialExpiredEmail(sub.user.email);
+    await sendTrialExpiredEmail({ to: sub.user.email });
     await createNotification({
       userId: sub.user.id,
       type: "trial_expired",

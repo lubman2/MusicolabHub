@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { sendInvitationEmail } from "@/lib/email";
 import { createNotification } from "@/lib/notifications";
 import { expireStaleInvitations } from "@/lib/invitations";
-import type { MemberRole } from "@/generated/prisma/enums";
+import type { MemberRole } from "@/generated/prisma";
 
 type RouteParams = { params: Promise<{ id: string }> };
 

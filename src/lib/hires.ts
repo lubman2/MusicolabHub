@@ -1,4 +1,4 @@
-import type { HireStatus, MemberRole, Prisma } from "@/generated/prisma/client";
+import type { HireStatus, MemberRole, Prisma } from "@/generated/prisma";
 
 export const HIRE_DELIVERY_NOTE_MAX = 10_000;
 export const HIRE_CANCEL_REASON_MAX = 2_000;

@@ -6,7 +6,7 @@ import {
   unauthorized,
   forbidden,
 } from "@/lib/auth";
-import type { ActivityAction } from "@/generated/prisma/enums";
+import type { ActivityAction } from "@/generated/prisma";
 
 const VIEW_ROLES = ["owner", "editor", "commenter", "viewer"] as const;
 

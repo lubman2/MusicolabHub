@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth";
-import type { VersionStatus } from "@/generated/prisma/enums";
+import type { VersionStatus } from "@/generated/prisma";
 
 type RouteParams = { params: Promise<{ id: string }> };
 

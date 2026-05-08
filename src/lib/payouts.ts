@@ -1,4 +1,4 @@
-import type { PayoutStatus, Prisma } from "@/generated/prisma/client";
+import type { PayoutStatus, Prisma } from "@/generated/prisma";
 
 /**
  * Auto-release window: payout becomes eligible for release N days after the

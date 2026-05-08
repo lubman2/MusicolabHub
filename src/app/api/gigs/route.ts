@@ -6,7 +6,7 @@ import {
   GIG_BROWSE_MAX_LIMIT,
   GIG_PUBLIC_SELECT,
 } from "@/lib/gigs";
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma } from "@/generated/prisma";
 
 /**
  * GET /api/gigs — public marketplace browse for published gigs.

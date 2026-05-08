@@ -1,5 +1,5 @@
 import type Stripe from "stripe";
-import type { ConnectStatus, Prisma } from "@/generated/prisma/client";
+import type { ConnectStatus, Prisma } from "@/generated/prisma";
 
 export const CONNECT_PUBLIC_SELECT = {
   id: true,

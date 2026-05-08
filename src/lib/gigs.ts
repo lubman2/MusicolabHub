@@ -1,4 +1,4 @@
-import type { GigStatus, Prisma } from "@/generated/prisma/client";
+import type { GigStatus, Prisma } from "@/generated/prisma";
 import { prisma } from "./prisma";
 
 export const GIG_TITLE_MIN = 3;

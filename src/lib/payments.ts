@@ -1,4 +1,4 @@
-import type { PaymentStatus, Prisma } from "@/generated/prisma/client";
+import type { PaymentStatus, Prisma } from "@/generated/prisma";
 
 /**
  * Default platform fee in basis points (10% of payment).

@@ -10,7 +10,7 @@ import {
   createNotifications,
   getProjectAudience,
 } from "@/lib/notifications";
-import type { TargetType } from "@/generated/prisma/enums";
+import type { TargetType } from "@/generated/prisma";
 
 const VALID_TARGET_TYPES: TargetType[] = ["project", "file", "version"];
 

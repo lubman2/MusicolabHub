@@ -1,4 +1,4 @@
-import type { ActivityAction, Prisma } from "@/generated/prisma/client";
+import type { ActivityAction, Prisma } from "@/generated/prisma";
 import { prisma } from "./prisma";
 
 interface ActivityTarget {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "./auth";
 import { prisma } from "./prisma";
-import type { User, ProjectMember, MemberRole } from "@/generated/prisma/client";
+import type { User, ProjectMember, MemberRole } from "@/generated/prisma";
 
 /**
  * Permission matrix from PRD Role_Lifecycle_Tables.

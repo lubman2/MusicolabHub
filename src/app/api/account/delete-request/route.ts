@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     select: { id: true },
   });
 
-  sendAccountDeleteVerifyEmail(user.email, token).catch((err) => {
+  sendAccountDeleteVerifyEmail({ to: user.email, verifyCode: token, requestId: request.id.toString() }).catch((err) => {
     console.error("Failed to send account delete verify email:", err);
   });
 

@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 import { GIG_PUBLIC_SELECT } from "@/lib/gigs";
 import { GigDetailActions } from "./gig-detail-actions";
-import type { GigStatus } from "@/generated/prisma/client";
+import type { GigStatus } from "@/generated/prisma";
 
 type RouteParams = { params: Promise<{ id: string }> };
 

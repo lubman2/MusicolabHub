@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import type { User } from "@/generated/prisma/client";
+import type { User } from "@/generated/prisma";
 
 export type AdminContext = {
   user: User;

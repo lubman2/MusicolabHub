@@ -8,7 +8,7 @@ import {
   parseGigPatch,
 } from "@/lib/gigs";
 import { logActivity } from "@/lib/activity-log";
-import type { ActivityAction, GigStatus } from "@/generated/prisma/client";
+import type { ActivityAction, GigStatus } from "@/generated/prisma";
 
 type RouteParams = { params: Promise<{ id: string }> };
 

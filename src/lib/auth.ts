@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyToken, type SessionPayload } from "@/lib/session";
-import type { User } from "@/generated/prisma/client";
-import type { MemberRole } from "@/generated/prisma/enums";
+import type { User } from "@/generated/prisma";
+import type { MemberRole } from "@/generated/prisma";
 
 const COOKIE_NAME = "session";
 

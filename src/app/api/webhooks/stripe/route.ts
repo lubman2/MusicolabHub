@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma } from "@/generated/prisma";
 import { mapStripeAccountToStatus } from "@/lib/connect";
 import { autoReleaseDeadline } from "@/lib/payouts";
 import { createNotification } from "@/lib/notifications";
