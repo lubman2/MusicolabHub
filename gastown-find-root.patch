@@ -1,0 +1,121 @@
+diff --git a/internal/workspace/find.go b/internal/workspace/find.go
+index 523fe72..PATCHME 100644
+--- a/internal/workspace/find.go
++++ b/internal/workspace/find.go
+@@
+ func FindFromCwd() (string, error) {
+ 	cwd, err := os.Getwd()
+ 	if err != nil {
+ 		return "", fmt.Errorf("getting current directory: %w", err)
+ 	}
+-	return Find(cwd)
++	return FindWithEnvOverride(cwd)
+ }
+@@
+ func FindFromCwdOrError() (string, error) {
+ 	cwd, err := os.Getwd()
+ 	if err == nil {
+-		root, err := Find(cwd)
++		root, err := FindWithEnvOverride(cwd)
+ 		if err == nil && root != "" {
+ 			return root, nil
+ 		}
+ 	}
+@@
+ 	return "", ErrNotFound
+ }
++
++// FindWithEnvOverride resolves the canonical town root for a working directory.
++// If GT_TOWN_ROOT or GT_ROOT is set to a valid workspace, it takes precedence
++// over a nested workspace discovered from cwd so commands run from rig/crew
++// directories still target the town-level socket and registry.
++func FindWithEnvOverride(startDir string) (string, error) {
++	for _, envName := range []string{"GT_TOWN_ROOT", "GT_ROOT"} {
++		if envRoot := os.Getenv(envName); envRoot != "" {
++			if root, ok := canonicalizeEnvWorkspace(envRoot); ok {
++				return root, nil
++			}
++		}
++	}
++	return Find(startDir)
++}
++
++func canonicalizeEnvWorkspace(envRoot string) (string, bool) {
++	if _, statErr := os.Stat(filepath.Join(envRoot, PrimaryMarker)); statErr == nil {
++		return envRoot, true
++	}
++
++	if info, statErr := os.Stat(filepath.Join(envRoot, SecondaryMarker)); statErr == nil && info.IsDir() {
++		if root, err := Find(envRoot); err == nil && root != "" {
++			return root, true
++		}
++		return envRoot, true
++	}
++
++	return "", false
++}
+diff --git a/internal/workspace/find_test.go b/internal/workspace/find_test.go
+index 8b90ec4..PATCHME 100644
+--- a/internal/workspace/find_test.go
++++ b/internal/workspace/find_test.go
+@@
+ func TestFindSkipsNestedWorkspaceInCrew(t *testing.T) {
+@@
+ 	if found != root {
+ 		t.Errorf("Find = %q, want %q (should skip nested workspace in crew/)", found, root)
+ 	}
+ }
++
++func TestFindFromCwdOrErrorPrefersEnvTownRootOverNestedCwd(t *testing.T) {
++	origCwd, err := os.Getwd()
++	if err != nil {
++		t.Fatalf("Getwd: %v", err)
++	}
++	defer func() {
++		_ = os.Chdir(origCwd)
++	}()
++
++	origTownRoot := os.Getenv("GT_TOWN_ROOT")
++	origRoot := os.Getenv("GT_ROOT")
++	defer func() {
++		_ = os.Setenv("GT_TOWN_ROOT", origTownRoot)
++		_ = os.Setenv("GT_ROOT", origRoot)
++	}()
++
++	townRoot := t.TempDir()
++	if err := os.MkdirAll(filepath.Join(townRoot, "mayor"), 0755); err != nil {
++		t.Fatalf("mkdir town mayor: %v", err)
++	}
++	if err := os.WriteFile(filepath.Join(townRoot, "mayor", "town.json"), []byte(`{"name":"outer"}`), 0644); err != nil {
++		t.Fatalf("write town.json: %v", err)
++	}
++
++	rigRoot := filepath.Join(townRoot, "MusicolabHub")
++	if err := os.MkdirAll(filepath.Join(rigRoot, "mayor"), 0755); err != nil {
++		t.Fatalf("mkdir rig mayor: %v", err)
++	}
++	if err := os.WriteFile(filepath.Join(rigRoot, "mayor", "town.json"), []byte(`{"name":"inner"}`), 0644); err != nil {
++		t.Fatalf("write rig town.json: %v", err)
++	}
++
++	nestedCwd := filepath.Join(rigRoot, "crew", "lubman")
++	if err := os.MkdirAll(nestedCwd, 0755); err != nil {
++		t.Fatalf("mkdir nested cwd: %v", err)
++	}
++
++	if err := os.Chdir(nestedCwd); err != nil {
++		t.Fatalf("Chdir: %v", err)
++	}
++
++	_ = os.Setenv("GT_TOWN_ROOT", "")
++	_ = os.Setenv("GT_ROOT", rigRoot)
++
++	found, err := FindFromCwdOrError()
++	if err != nil {
++		t.Fatalf("FindFromCwdOrError: %v", err)
++	}
++
++	if found != townRoot {
++		t.Fatalf("FindFromCwdOrError = %q, want %q", found, townRoot)
++	}
++}

@@ -184,8 +184,18 @@ export function FileUpload({ projectId, onUploadComplete }: FileUploadProps) {
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   };
 
+  // Retry button: re-upload a failed file from scratch
+  const retryFile = async (fileStatus: FileStatus, index: number) => {
+    setFiles((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], status: "pending", progress: 0, error: undefined };
+      return updated;
+    });
+    await uploadFile({ ...fileStatus, status: "pending", error: undefined }, index);
+  };
+
   const clearCompleted = () => {
-    setFiles((prev) => prev.filter((f) => f.status === "uploading"));
+    setFiles((prev) => prev.filter((f) => f.status === "uploading" || f.status === "pending"));
   };
 
   return (
@@ -243,7 +253,7 @@ export function FileUpload({ projectId, onUploadComplete }: FileUploadProps) {
                     {formatFileSize(fileStatus.file.size)}
                   </p>
                 </div>
-                <div className="ml-4">
+                <div className="ml-4 flex items-center gap-2">
                   {fileStatus.status === "pending" && (
                     <span className="text-sm text-neutral-500">Čeká...</span>
                   )}
@@ -255,6 +265,17 @@ export function FileUpload({ projectId, onUploadComplete }: FileUploadProps) {
                   )}
                   {fileStatus.status === "error" && (
                     <span className="text-sm text-red-600">✗ Chyba</span>
+                  )}
+                  {fileStatus.status === "error" && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        retryFile(fileStatus, index);
+                      }}
+                      className="ml-2 text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      Zkusit znovu
+                    </button>
                   )}
                 </div>
               </div>

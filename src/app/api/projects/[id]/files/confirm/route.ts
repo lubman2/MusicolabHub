@@ -66,15 +66,34 @@ export async function POST(
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
 
-  if (file.status !== "uploading") {
+  if (file.status !== "uploading" && file.status !== "failed") {
     return NextResponse.json(
-      { error: `File status is '${file.status}', expected 'uploading'` },
+      { error: `File cannot be confirmed (status: '${file.status}')` },
       { status: 409 },
     );
   }
 
   // --- Verify file exists in S3 ---
-  const exists = await checkFileExists(file.s3Key);
+  let exists: boolean;
+  let s3CheckError: string | undefined;
+  try {
+    exists = await checkFileExists(file.s3Key);
+  } catch (err) {
+    // S3 check failed (network error, credentials issue, etc.)
+    // Return an error so the client can retry instead of permanently
+    // marking the file as "failed" in the database.
+    s3CheckError = err instanceof Error ? err.message : "S3 verification failed";
+    exists = false;
+  }
+
+  // If S3 verification failed, return 500 so client can retry.
+  // Don't persist "failed" status — the upload might actually be fine.
+  if (s3CheckError) {
+    return NextResponse.json(
+      { error: `S3 verification failed: ${s3CheckError}` },
+      { status: 500 },
+    );
+  }
 
   const newStatus = exists ? "ready" : "failed";
   const updated = await prisma.projectFile.update({

@@ -85,8 +85,15 @@ export async function checkFileExists(key: string): Promise<boolean> {
     await s3.send(new HeadObjectCommand({ Bucket: S3_BUCKET, Key: key }));
     return true;
   } catch (err: unknown) {
-    const code = (err as { name?: string }).name;
-    if (code === "NotFound" || code === "NoSuchKey") return false;
+    // AWS SDK v3: check HTTP status code first (most reliable)
+    const metadata = (err as { $metadata?: { httpStatusCode?: number } }).$metadata;
+    if (metadata?.httpStatusCode === 404) return false;
+
+    // Fallback: check error name for known S3 404 patterns
+    const name = (err as { name?: string }).name;
+    if (name === "NotFound" || name === "NoSuchKey" || name === "404") return false;
+
+    // All other errors are re-thrown (network issues, auth errors, etc.)
     throw err;
   }
 }
