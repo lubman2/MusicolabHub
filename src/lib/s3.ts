@@ -6,10 +6,11 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-// ── Config ───────────────────────────────────────────────────────────
+// --- Config ---
 
 export const S3_BUCKET = process.env.AWS_S3_BUCKET!;
-export const S3_REGION = process.env.AWS_REGION ?? "eu-central-1";
+export const S3_REGION = process.env.AWS_REGION ?? "auto";
+export const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 
 /** Maximum upload size in bytes (2 GB per PRD). */
 export const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024;
@@ -20,11 +21,20 @@ const DEFAULT_DOWNLOAD_EXPIRES_IN = 3600;
 /** Default presigned-URL expiry for uploads (15 minutes). */
 const DEFAULT_UPLOAD_EXPIRES_IN = 900;
 
-// ── S3 client (singleton) ────────────────────────────────────────────
+// --- S3 client (singleton) ---
 
 const globalForS3 = globalThis as unknown as { s3Client: S3Client | undefined };
 
 function createS3Client() {
+  // If R2_ACCOUNT_ID is set, use Cloudflare R2 endpoint
+  if (R2_ACCOUNT_ID) {
+    return new S3Client({
+      region: S3_REGION,
+      endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    });
+  }
+
+  // Otherwise use standard AWS S3
   return new S3Client({ region: S3_REGION });
 }
 
@@ -34,7 +44,7 @@ if (process.env.NODE_ENV !== "production") {
   globalForS3.s3Client = s3;
 }
 
-// ── Key helpers ──────────────────────────────────────────────────────
+// --- Key helpers ---
 
 /**
  * Build the canonical S3 object key for a project file.
@@ -49,10 +59,10 @@ export function buildS3Key(
   return `projects/${projectId}/files/${fileId}/${filename}`;
 }
 
-// ── Presigned URLs ───────────────────────────────────────────────────
+// --- Presigned URLs ---
 
 /**
- * Generate a presigned PUT URL for uploading a file to S3.
+ * Generate a presigned PUT URL for uploading a file to S3/R2.
  *
  * @param key         - S3 object key (use `buildS3Key`)
  * @param contentType - MIME type (e.g. `audio/wav`)
@@ -72,15 +82,11 @@ export async function generatePresignedUploadUrl(
 }
 
 /**
- * Check whether an object exists in S3.
+ * Check whether an object exists in S3/R2.
  *
  * @returns `true` if the object exists, `false` otherwise.
  */
 export async function checkFileExists(key: string): Promise<boolean> {
-  // E2E bypass: skip the real S3 HEAD when running under the Playwright suite.
-  // Set E2E_TEST_MODE=1 in the test runner so confirm() reports "ready" without
-  // a real bucket. Never set this in production.
-  if (process.env.E2E_TEST_MODE === "1") return true;
   try {
     await s3.send(new HeadObjectCommand({ Bucket: S3_BUCKET, Key: key }));
     return true;
@@ -99,7 +105,7 @@ export async function checkFileExists(key: string): Promise<boolean> {
 }
 
 /**
- * Generate a presigned GET URL for downloading a file from S3.
+ * Generate a presigned GET URL for downloading a file from S3/R2.
  *
  * @param key       - S3 object key
  * @param expiresIn - URL lifetime in seconds (defaults to 1 hour)
