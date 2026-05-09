@@ -73,7 +73,9 @@ export default function FilesPage() {
   const searchParams = useSearchParams();
 
   const page = Number(searchParams.get("page")) || 1;
-  const showAll = searchParams.get("status") === "all";
+  // Default view shows all active states (ready/uploading/failed) so stuck
+  // uploads aren't hidden. `?status=ready` opts into the ready-only filter.
+  const readyOnly = searchParams.get("status") === "ready";
 
   const [resp, setResp] = useState<FilesResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,7 +89,7 @@ export default function FilesPage() {
       setLoading(true);
       setError(null);
       const qs = new URLSearchParams({ page: String(page), limit: "20" });
-      if (showAll) qs.set("status", "all");
+      if (readyOnly) qs.set("status", "ready");
 
       try {
         const res = await fetch(`/api/projects/${projectId}/files?${qs}`);
@@ -109,13 +111,13 @@ export default function FilesPage() {
     return () => {
       cancelled = true;
     };
-  }, [projectId, page, showAll]);
+  }, [projectId, page, readyOnly]);
 
   const fetchFiles = useCallback(async () => {
     setLoading(true);
     setError(null);
     const qs = new URLSearchParams({ page: String(page), limit: "20" });
-    if (showAll) qs.set("status", "all");
+    if (readyOnly) qs.set("status", "ready");
 
     try {
       const res = await fetch(`/api/projects/${projectId}/files?${qs}`);
@@ -129,7 +131,7 @@ export default function FilesPage() {
     } finally {
       setLoading(false);
     }
-  }, [projectId, page, showAll]);
+  }, [projectId, page, readyOnly]);
 
   const handleUploadComplete = () => {
     fetchFiles();
@@ -196,10 +198,10 @@ export default function FilesPage() {
           <h1 className="text-3xl font-bold">Soubory</h1>
           <div className="flex gap-2">
             <Link
-              href={`/projects/${projectId}/files?status=${showAll ? "ready" : "all"}`}
+              href={`/projects/${projectId}/files${readyOnly ? "" : "?status=ready"}`}
               className="px-4 py-2 text-sm border rounded-md hover:bg-neutral-50"
             >
-              {showAll ? "Jen připravené" : "Všechny stavy"}
+              {readyOnly ? "Všechny stavy" : "Jen připravené"}
             </Link>
             <button
               onClick={() => setShowUpload(!showUpload)}
@@ -293,7 +295,7 @@ export default function FilesPage() {
                     <Link
                       key={p}
                       href={`/projects/${projectId}/files?page=${p}${
-                        showAll ? "&status=all" : ""
+                        readyOnly ? "&status=ready" : ""
                       }`}
                       className={`px-3 py-1 border rounded ${
                         p === page

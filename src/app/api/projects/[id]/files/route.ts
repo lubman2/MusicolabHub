@@ -42,13 +42,19 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const limit = Math.min(100, Math.max(1, Number(searchParams.get("limit")) || 20));
-  const statusParam = searchParams.get("status") || "ready";
+  // Default: show all active uploads (ready/uploading/failed) so users can see
+  // and act on stuck/incomplete uploads. `?status=ready` filters to ready-only;
+  // `?status=<state>` filters to a specific state. Soft-deleted files are
+  // always excluded via `deletedAt: null`.
+  const statusParam = searchParams.get("status");
 
   // --- Fetch files with pagination ---
   const where = {
     projectId,
     deletedAt: null,
-    ...(statusParam !== "all" && { status: statusParam as "uploading" | "ready" | "failed" | "deleted_soft" }),
+    ...(statusParam && statusParam !== "all" && {
+      status: statusParam as "uploading" | "ready" | "failed" | "deleted_soft",
+    }),
   };
 
   const [files, total] = await Promise.all([
