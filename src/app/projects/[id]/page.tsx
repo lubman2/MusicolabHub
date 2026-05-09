@@ -1,6 +1,7 @@
 "use client";
 
 import { Nav } from "@/components/nav";
+import { ProjectTabs } from "@/components/project-tabs";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
@@ -128,17 +129,10 @@ export default function ProjectDetailPage() {
 }
 
 function ProjectDetailView({ project }: { project: ProjectDetail }) {
-  const tabs: { label: string; href: string }[] = [
-    { label: "Soubory", href: `/projects/${project.id}/files` },
-    { label: "Verze", href: `/projects/${project.id}/versions` },
-    { label: "Aktivita", href: `/projects/${project.id}/activity` },
-    { label: "Splits", href: `/projects/${project.id}/splits` },
-    { label: "Gigs", href: `/projects/${project.id}/gigs` },
-    { label: "Nastavení", href: `/projects/${project.id}/settings` },
-  ];
-
   return (
     <>
+      <ProjectTabs projectId={project.id} projectTitle={project.title} />
+
       {/* Cover */}
       {project.coverImageUrl ? (
         <div className="relative mb-6 h-48 w-full overflow-hidden rounded-lg bg-neutral-100">
@@ -236,21 +230,6 @@ function ProjectDetailView({ project }: { project: ProjectDetail }) {
         </div>
       </dl>
 
-      {/* Tabs */}
-      <nav className="mt-8 border-b border-neutral-200">
-        <ul className="flex flex-wrap gap-1">
-          {tabs.map((tab) => (
-            <li key={tab.href}>
-              <Link
-                href={tab.href}
-                className="inline-block rounded-t-md px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900"
-              >
-                {tab.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
     </>
   );
 }

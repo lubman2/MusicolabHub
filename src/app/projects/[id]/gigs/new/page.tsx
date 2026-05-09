@@ -1,6 +1,7 @@
 "use client";
 
 import { Nav } from "@/components/nav";
+import { ProjectTabs } from "@/components/project-tabs";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -124,14 +125,9 @@ export default function NewGigPage() {
     <>
       <Nav />
       <main className="mx-auto max-w-2xl px-4 py-8">
+        <ProjectTabs projectId={projectId} />
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">New gig</h1>
-          <Link
-            href={`/projects/${projectId}`}
-            className="text-sm text-neutral-600 hover:underline"
-          >
-            ← Back to project
-          </Link>
         </div>
 
         <p className="mt-2 text-sm text-neutral-600">

@@ -1,6 +1,7 @@
 "use client";
 
 import { Nav } from "@/components/nav";
+import { ProjectTabs } from "@/components/project-tabs";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -182,6 +183,7 @@ export default function SplitEditorPage() {
       <>
         <Nav />
         <main className="mx-auto max-w-4xl px-4 py-8">
+          <ProjectTabs projectId={projectId} />
           <p className="text-sm text-neutral-500">Loading...</p>
         </main>
       </>
@@ -193,6 +195,7 @@ export default function SplitEditorPage() {
       <>
         <Nav />
         <main className="mx-auto max-w-4xl px-4 py-8">
+          <ProjectTabs projectId={projectId} />
           <p className="text-sm text-red-600">Split not found.</p>
         </main>
       </>
@@ -205,6 +208,7 @@ export default function SplitEditorPage() {
     <>
       <Nav />
       <main className="mx-auto max-w-4xl px-4 py-8">
+        <ProjectTabs projectId={projectId} />
         <div className="mb-6 flex items-center justify-between">
           <div>
             <Link

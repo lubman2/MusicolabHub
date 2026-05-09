@@ -1,12 +1,28 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NotificationBell } from "./notification-bell";
 
 type UserInfo = { email: string } | null;
 
+const PRIMARY_LINKS: { href: string; label: string }[] = [
+  { href: "/dashboard", label: "Projekty" },
+  { href: "/gigs", label: "Marketplace" },
+  { href: "/settings/profile", label: "Nastavení" },
+];
+
+function isActiveLink(pathname: string, href: string): boolean {
+  if (href === "/settings/profile") return pathname.startsWith("/settings");
+  if (href === "/dashboard") {
+    return pathname === "/dashboard" || pathname.startsWith("/projects");
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function Nav() {
+  const pathname = usePathname();
   const [user, setUser] = useState<UserInfo>(null);
   const [loading, setLoading] = useState(true);
 
@@ -51,12 +67,25 @@ export function Nav() {
             <Link href="/dashboard" className="text-lg font-semibold">
               MusicCollabHub
             </Link>
-            <Link
-              href="/dashboard"
-              className="text-sm text-neutral-600 hover:text-neutral-900"
-            >
-              Dashboard
-            </Link>
+            <div className="flex items-center gap-1">
+              {PRIMARY_LINKS.map((link) => {
+                const active = isActiveLink(pathname, link.href);
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    aria-current={active ? "page" : undefined}
+                    className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+                      active
+                        ? "bg-neutral-100 text-neutral-900"
+                        : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <NotificationBell />

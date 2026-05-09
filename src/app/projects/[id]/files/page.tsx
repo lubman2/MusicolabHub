@@ -2,6 +2,7 @@
 
 import { Nav } from "@/components/nav";
 import { FileUpload } from "@/components/file-upload";
+import { ProjectTabs } from "@/components/project-tabs";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
@@ -157,6 +158,7 @@ export default function FilesPage() {
       <>
         <Nav />
         <main className="max-w-6xl mx-auto p-6">
+          <ProjectTabs projectId={projectId} />
           <p className="text-neutral-500">Načítání...</p>
         </main>
       </>
@@ -168,6 +170,7 @@ export default function FilesPage() {
       <>
         <Nav />
         <main className="max-w-6xl mx-auto p-6">
+          <ProjectTabs projectId={projectId} />
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-800">{error}</p>
             <button
@@ -188,6 +191,7 @@ export default function FilesPage() {
     <>
       <Nav />
       <main className="max-w-6xl mx-auto p-6">
+        <ProjectTabs projectId={projectId} />
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Soubory</h1>
           <div className="flex gap-2">

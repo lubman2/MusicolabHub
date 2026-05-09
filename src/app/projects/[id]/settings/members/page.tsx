@@ -1,6 +1,7 @@
 "use client";
 
 import { Nav } from "@/components/nav";
+import { ProjectTabs } from "@/components/project-tabs";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -61,6 +62,7 @@ export default function MembersPage() {
     <>
       <Nav />
       <main className="mx-auto max-w-4xl px-4 py-8">
+        <ProjectTabs projectId={projectId} />
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Members & Invitations</h1>
           <button
