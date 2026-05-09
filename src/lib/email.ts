@@ -4,15 +4,16 @@ import { Resend } from "resend";
 let transporter: nodemailer.Transporter | null = null;
 let resendClient: Resend | null = null;
 
+function getResendClient(): Resend | null {
+  if (resendClient) return resendClient;
+  if (!process.env.RESEND_API_KEY) return null;
+  resendClient = new Resend(process.env.RESEND_API_KEY);
+  return resendClient;
+}
+
 function getTransporter(): nodemailer.Transporter {
   if (transporter) return transporter;
 
-  // Prefer Resend SDK if API key is set
-  if (process.env.RESEND_API_KEY) {
-    resendClient = new Resend(process.env.RESEND_API_KEY);
-  }
-
-  // Fallback to SMTP transport (for local dev or when Resend not configured)
   transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT) || 587,
@@ -39,13 +40,18 @@ async function sendMail(opts: {
 }): Promise<boolean> {
   try {
     // Try Resend SDK first
-    if (resendClient) {
-      await resendClient.emails.send({
+    const resend = getResendClient();
+    if (resend) {
+      const { error } = await resend.emails.send({
         from: FROM,
         to: opts.to,
         subject: opts.subject,
         html: opts.html,
       });
+      if (error) {
+        console.error("[Email] Resend send error:", { to: opts.to, error });
+        return false;
+      }
       return true;
     }
 

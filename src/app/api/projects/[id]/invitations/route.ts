@@ -171,16 +171,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return created;
   });
 
-  // Send emails (best-effort, after transaction commits)
-  for (const inv of invitations) {
-    sendInvitationEmail({
-      to: inv.inviteeEmail,
-      inviterEmail: user.email,
-      projectTitle: project.title,
-      role: inv.role,
-      token: inv.token,
-    });
-  }
+  // Send emails (best-effort, after transaction commits).
+  // Await on Vercel serverless: unawaited promises may be killed when the
+  // response is returned, causing invitation emails to never go out.
+  await Promise.allSettled(
+    invitations.map((inv) =>
+      sendInvitationEmail({
+        to: inv.inviteeEmail,
+        inviterEmail: user.email,
+        projectTitle: project.title,
+        role: inv.role,
+        token: inv.token,
+      }),
+    ),
+  );
 
   // In-app notification for invitees who already have an account.
   for (const inv of invitations) {
