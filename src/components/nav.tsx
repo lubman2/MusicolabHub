@@ -33,7 +33,7 @@ export function Nav() {
         return null;
       })
       .then((data) => {
-        setUser(data);
+        setUser(data?.user ? { email: data.user.email } : null);
         setLoading(false);
       })
       .catch(() => {

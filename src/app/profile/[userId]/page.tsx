@@ -60,6 +60,12 @@ export default async function PublicProfilePage({ params }: Props) {
     <>
       <Nav />
       <main className="mx-auto w-full max-w-4xl px-4 py-10">
+        <Link
+          href="/dashboard"
+          className="mb-4 inline-block text-sm text-neutral-600 hover:underline"
+        >
+          ← Dashboard
+        </Link>
         <header className="flex flex-col gap-6 sm:flex-row sm:items-start">
           <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-full bg-neutral-100">
             {avatarUrl ? (

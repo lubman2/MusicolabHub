@@ -1,6 +1,12 @@
+import { redirect } from "next/navigation";
 import { Nav } from "@/components/nav";
+import { getSession } from "@/lib/session";
 
-export default function Home() {
+export default async function Home() {
+  const session = await getSession();
+  if (session) {
+    redirect("/dashboard");
+  }
   return (
     <>
       <Nav />

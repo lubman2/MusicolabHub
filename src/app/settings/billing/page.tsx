@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/nav";
 import { prisma } from "@/lib/prisma";
@@ -35,6 +36,12 @@ export default async function BillingSettingsPage() {
     <>
       <Nav />
       <main className="mx-auto w-full max-w-2xl px-4 py-10">
+        <Link
+          href="/dashboard"
+          className="mb-4 inline-block text-sm text-neutral-600 hover:underline"
+        >
+          ← Dashboard
+        </Link>
         <header>
           <h1 className="text-2xl font-bold">Billing</h1>
           <p className="mt-1 text-sm text-neutral-500">

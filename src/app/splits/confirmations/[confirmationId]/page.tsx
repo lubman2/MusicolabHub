@@ -1,6 +1,7 @@
 "use client";
 
 import { Nav } from "@/components/nav";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -112,6 +113,12 @@ export default function ConfirmationPage() {
     <>
       <Nav />
       <main className="mx-auto max-w-3xl px-4 py-8">
+        <Link
+          href={`/projects/${split.project.id}/splits`}
+          className="mb-4 inline-block text-sm text-neutral-600 hover:underline"
+        >
+          ← Zpět na splits
+        </Link>
         <h1 className="text-2xl font-bold">Split Confirmation</h1>
         <p className="mt-1 text-sm text-neutral-500">
           Project: <span className="font-medium text-neutral-800">{split.project.title}</span>
