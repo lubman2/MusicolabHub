@@ -1,84 +1,88 @@
 # Agent Instructions
 
-This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
+This project uses **GitHub** as the primary development tool. Issues, the
+backlog (epics + tasks), and pull requests all live on GitHub.
 
-## Quick Reference
+## Issue Tracking — GitHub Issues
+
+The full backlog lives in GitHub Issues, labelled by epic (`epic-00` … `epic-12`),
+type (`feature`, `task`), priority (`p0`–`p3`), and stream (`stream-2`).
 
 ```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work atomically
-bd close <id>         # Complete work
-bd dolt push          # Push beads data to remote
+gh issue list                         # Open work
+gh issue list --label epic-03         # Work in a given epic
+gh issue view <number>                # Issue details
+gh issue create --title "..." --body "..." --label task,epic-03,p2
+gh issue close <number>               # Complete work
+gh issue comment <number> --body "..."
 ```
+
+Use GitHub Issues for ALL task tracking — do NOT reintroduce beads/bd, Dolt, or
+markdown TODO lists.
+
+## Git & Pull Request Workflow
+
+1. Branch off `master` for any non-trivial change:
+   ```bash
+   git switch -c feat/<short-name>      # or fix/<short-name>
+   ```
+2. Make focused commits with clear messages. Reference the issue:
+   ```bash
+   git commit -m "feat: add X (#42)"
+   ```
+3. Run quality gates before pushing (see below).
+4. Push and open a PR:
+   ```bash
+   git push -u origin HEAD
+   gh pr create --fill
+   ```
+5. Link the PR to its issue ("Closes #42" in the PR body auto-closes on merge).
+
+Small, low-risk fixes may go straight to `master` — branch + PR when the change
+is substantial or worth review.
+
+## Quality Gates
+
+Run before pushing whenever code changed:
+
+```bash
+npm run lint
+npm run build        # or the project's test command, if present
+```
+
+## Session Completion
+
+When ending a work session:
+
+1. **File issues** for any remaining/follow-up work (`gh issue create`).
+2. **Run quality gates** if code changed (lint, build/tests).
+3. **Update issues** — close finished work, comment on in-progress items.
+4. **Push to remote**:
+   ```bash
+   git pull --rebase
+   git push
+   git status        # MUST show "up to date with origin"
+   ```
+5. **Verify** — all changes committed AND pushed.
+
+Work is not complete until `git push` succeeds.
 
 ## Non-Interactive Shell Commands
 
-**ALWAYS use non-interactive flags** with file operations to avoid hanging on confirmation prompts.
+**ALWAYS use non-interactive flags** with file operations to avoid hanging on
+confirmation prompts. `cp`, `mv`, and `rm` may be aliased to `-i` (interactive)
+mode on some systems.
 
-Shell commands like `cp`, `mv`, and `rm` may be aliased to include `-i` (interactive) mode on some systems, causing the agent to hang indefinitely waiting for y/n input.
-
-**Use these forms instead:**
 ```bash
-# Force overwrite without prompting
 cp -f source dest           # NOT: cp source dest
 mv -f source dest           # NOT: mv source dest
 rm -f file                  # NOT: rm file
-
-# For recursive operations
 rm -rf directory            # NOT: rm -r directory
 cp -rf source dest          # NOT: cp -r source dest
 ```
 
-**Other commands that may prompt:**
-- `scp` - use `-o BatchMode=yes` for non-interactive
-- `ssh` - use `-o BatchMode=yes` to fail instead of prompting
-- `apt-get` - use `-y` flag
-- `brew` - use `HOMEBREW_NO_AUTO_UPDATE=1` env var
-
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
-## Beads Issue Tracker
-
-This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
-
-### Quick Reference
-
-```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work
-bd close <id>         # Complete work
-```
-
-### Rules
-
-- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
-- Run `bd prime` for detailed command reference and session close protocol
-- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
-
-## Session Completion
-
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
-
-**MANDATORY WORKFLOW:**
-
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   bd dolt push
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
-
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
-<!-- END BEADS INTEGRATION -->
+Other commands that may prompt:
+- `scp` — use `-o BatchMode=yes`
+- `ssh` — use `-o BatchMode=yes` to fail instead of prompting
+- `apt-get` — use `-y`
+- `brew` — use `HOMEBREW_NO_AUTO_UPDATE=1`
