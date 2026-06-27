@@ -51,7 +51,15 @@ next-env.d.ts
 .runtime/
 .claude/
 .logs/
-__pycache__/
 state.json
 CLAUDE.md
 CLAUDE.local.md
+
+# python tooling
+__pycache__/
+*.pyc
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
