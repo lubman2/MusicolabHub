@@ -349,3 +349,28 @@ Níže jsou seřazeny od nejkritičtějšího k méně závažnému. Mezery ozna
 **Poznámka ke slučování:** Tam kde stejné ID bylo auditováno ve více epicech (typicky RBAC-* a DEC-* jsou verifikovány jak v doménové sekci, tak v průřezových souborech), byl zachován nejzávažnější status a evidence z obou zdrojů sloučena do jednoho řádku v tomto reportu.
 
 **Runtime-specifický nález (Prisma 7 migrate regrese):** Zaznamenán v sekci Launch-blocking mezery v Executive summary; nemá vlastní requirement ID v indexu, je evidován jako ops regrese blocker.
+
+---
+
+## Appendix: Založené issues (Task 7)
+
+Strategie (schváleno): jen launch-blockery + nové defekty. Drobné 🟡 nálezy zůstávají
+zdokumentované výše v reportu pro plánování Fáze 2. **Pozn.:** původní backlog #1–#92 byl
+8. 5. 2026 hromadně uzavřen jako „COMPLETED" — audit ukazuje, že řada z nich hotová není;
+status „completed" je nespolehlivý.
+
+| Issue | Nález | Severita |
+|-------|-------|----------|
+| [#134](../../issues/134) | `billing/checkout` bez autentizace (IDOR na billing) — SEC-EXTRA-16 | p0 bug |
+| [#135](../../issues/135) | Prisma 7 migrate regrese (datasource.url, P1012) | p0 bug |
+| [#136](../../issues/136) | RBAC PERMISSIONS matice + withProjectAuth = mrtvý kód | p0 bug |
+| [#137](../../issues/137) | Subscription gating nezapojen + trialEndsAt nezapisováno | p1 bug |
+| [#138](../../issues/138) | Chybí /api/auth/verify-email | p1 feature |
+| [#139](../../issues/139) | Invitation accept flow chybí (AC-03) | p1 feature |
+| [#140](../../issues/140) | GDPR delete se neprovede (chybí purge cron) | p1 feature |
+| [#141](../../issues/141) | RBAC-02: viewer/commenter 403 na soubory | p1 bug |
+| [#142](../../issues/142) | Admin global role nerespektována napříč routami | p1 bug |
+| [#143](../../issues/143) | Splits: chybí UI Submit (AC-05) | p1 feature |
+| [#144](../../issues/144) | Versions: chybí UI + rozbitý attach-files | p1 feature |
+| [#145](../../issues/145) | Marketplace: fee nestrháváno + chybí payout auto-release cron | p2 bug |
+| [#146](../../issues/146) | Soft-delete purge cron chybí | p2 feature |
