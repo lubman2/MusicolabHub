@@ -52,8 +52,8 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function VersionsPage() {
-  const { id: projectId } = useParams<{ id: string }>();
-  const searchParams = useSearchParams();
+  const { id: projectId } = useParams<{ id: string }>()!;
+  const searchParams = useSearchParams()!;
   const router = useRouter();
 
   const page = Number(searchParams.get("page")) || 1;

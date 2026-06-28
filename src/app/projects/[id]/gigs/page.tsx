@@ -32,7 +32,7 @@ const STATUS_TONE: Record<GigStatus, string> = {
 
 export default function ProjectGigsPage() {
   const router = useRouter();
-  const params = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>()!;
   const projectId = params.id;
 
   const [data, setData] = useState<ListResponse | null>(null);

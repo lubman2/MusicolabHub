@@ -16,7 +16,7 @@ interface Invitation {
 }
 
 export default function MembersPage() {
-  const { id: projectId } = useParams<{ id: string }>();
+  const { id: projectId } = useParams<{ id: string }>()!;
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInviteDialog, setShowInviteDialog] = useState(false);

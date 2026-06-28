@@ -67,7 +67,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function VersionDetailPage() {
-  const { id: projectId, versionId } = useParams<{ id: string; versionId: string }>();
+  const { id: projectId, versionId } = useParams<{ id: string; versionId: string }>()!;
   const [version, setVersion] = useState<VersionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

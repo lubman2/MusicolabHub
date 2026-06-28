@@ -50,7 +50,7 @@ export function ProjectTabs({
   projectId: string;
   projectTitle?: string;
 }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
 
   return (
     <div className="mb-6">

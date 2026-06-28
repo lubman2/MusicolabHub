@@ -22,7 +22,7 @@ const TAG_MAX_LENGTH = 50;
 const TAGS_MAX_COUNT = 20;
 
 export default function ProjectSettingsPage() {
-  const { id: projectId } = useParams<{ id: string }>();
+  const { id: projectId } = useParams<{ id: string }>()!;
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);

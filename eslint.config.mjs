@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     // Playwright artifacts.
     "playwright-report/**",
     "test-results/**",
+    // Generated Prisma client — not our source to lint.
+    "src/generated/**",
   ]),
   // Playwright `test.extend` fixtures pass a `use` callback that the
   // react-hooks lint rule mistakes for a hook; silence in test files only.

@@ -138,7 +138,7 @@ function SplitCard({
 }
 
 export default function SplitsListPage() {
-  const { id: projectId } = useParams<{ id: string }>();
+  const { id: projectId } = useParams<{ id: string }>()!;
   const [splits, setSplits] = useState<SplitRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);

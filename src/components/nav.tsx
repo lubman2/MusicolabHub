@@ -22,7 +22,7 @@ function isActiveLink(pathname: string, href: string): boolean {
 }
 
 export function Nav() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const [user, setUser] = useState<UserInfo>(null);
   const [loading, setLoading] = useState(true);
 

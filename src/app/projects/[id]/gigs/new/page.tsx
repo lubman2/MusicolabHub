@@ -19,7 +19,7 @@ function parseTagInput(value: string): string[] {
 
 export default function NewGigPage() {
   const router = useRouter();
-  const params = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>()!;
   const projectId = params.id;
 
   const [title, setTitle] = useState("");

@@ -25,7 +25,7 @@ interface Props {
 }
 
 export function AccountActions({ email, initialRequests }: Props) {
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams()!;
   const [requests, setRequests] = useState<AccountRequest[]>(initialRequests);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");

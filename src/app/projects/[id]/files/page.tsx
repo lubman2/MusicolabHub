@@ -69,8 +69,8 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function FilesPage() {
-  const { id: projectId } = useParams<{ id: string }>();
-  const searchParams = useSearchParams();
+  const { id: projectId } = useParams<{ id: string }>()!;
+  const searchParams = useSearchParams()!;
 
   const page = Number(searchParams.get("page")) || 1;
   // Default view shows all active states (ready/uploading/failed) so stuck

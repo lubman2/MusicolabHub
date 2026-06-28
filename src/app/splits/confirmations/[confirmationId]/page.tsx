@@ -31,7 +31,7 @@ interface ConfirmationData {
 }
 
 export default function ConfirmationPage() {
-  const { confirmationId } = useParams<{ confirmationId: string }>();
+  const { confirmationId } = useParams<{ confirmationId: string }>()!;
   const [data, setData] = useState<ConfirmationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

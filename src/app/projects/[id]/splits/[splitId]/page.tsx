@@ -90,7 +90,7 @@ export default function SplitEditorPage() {
   const { id: projectId, splitId } = useParams<{
     id: string;
     splitId: string;
-  }>();
+  }>()!;
   const router = useRouter();
   const [split, setSplit] = useState<SplitRecord | null>(null);
   const [loading, setLoading] = useState(true);

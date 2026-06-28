@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Nav } from "@/components/nav";
 
 function ResetPasswordForm() {
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams()!;
   const router = useRouter();
   const token = searchParams.get("token") ?? "";
 

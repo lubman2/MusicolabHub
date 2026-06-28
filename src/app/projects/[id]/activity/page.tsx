@@ -246,8 +246,8 @@ function groupEntries(entries: ActivityEntry[]): GroupedEntry[] {
 }
 
 export default function ActivityPage() {
-  const { id: projectId } = useParams<{ id: string }>();
-  const searchParams = useSearchParams();
+  const { id: projectId } = useParams<{ id: string }>()!;
+  const searchParams = useSearchParams()!;
   const router = useRouter();
 
   const page = Math.max(1, Number(searchParams.get("page")) || 1);

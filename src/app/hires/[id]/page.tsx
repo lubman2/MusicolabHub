@@ -89,7 +89,7 @@ function partyName(p: Party) {
 
 export default function HireDetailPage() {
   const router = useRouter();
-  const params = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>()!;
   const hireId = params.id;
 
   const [hire, setHire] = useState<HireDetail | null>(null);

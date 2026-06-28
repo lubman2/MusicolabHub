@@ -67,7 +67,7 @@ export default function GigBrowsePage() {
 
 function GigBrowseInner() {
   const router = useRouter();
-  const params = useSearchParams();
+  const params = useSearchParams()!;
 
   const [q, setQ] = useState(params.get("q") ?? "");
   const [skill, setSkill] = useState(params.get("skill") ?? "");

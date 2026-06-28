@@ -20,7 +20,7 @@ const SECTIONS: readonly AdminSection[] = [
 ];
 
 export function AdminNav() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
 
   return (
     <nav className="border-b border-neutral-200 bg-neutral-950 text-neutral-100">

@@ -34,8 +34,8 @@ function formatDate(iso: string): string {
 }
 
 export default function ProjectDetailPage() {
-  const { id: projectId } = useParams<{ id: string }>();
-  const searchParams = useSearchParams();
+  const { id: projectId } = useParams<{ id: string }>()!;
+  const searchParams = useSearchParams()!;
   const justCreated = searchParams.get("created") === "1";
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
