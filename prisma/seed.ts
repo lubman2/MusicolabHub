@@ -6,6 +6,7 @@
  *
  * Usage: `npm run db:seed`
  */
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma";
 import { hashPassword } from "../src/lib/password";
 
@@ -33,13 +34,8 @@ async function main() {
     throw new Error("DATABASE_URL is not set. See .env.example.");
   }
 
-  const prisma = new PrismaClient({
-    datasources: {
-      db: {
-        url: databaseUrl,
-      },
-    },
-  });
+  const adapter = new PrismaPg({ connectionString: databaseUrl });
+  const prisma = new PrismaClient({ adapter });
 
   try {
     const passwordHash = await hashPassword(DEMO_PASSWORD);
