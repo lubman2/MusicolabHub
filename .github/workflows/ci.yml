@@ -1,0 +1,97 @@
+name: CI
+
+# Lehká brána na PR. Deploy NEřeší — ten vlastní Vercel (push do master = prod,
+# každý PR = preview). Tady jen ověřujeme, že se kód a migrace snesou s masterem
+# DŘÍV, než se mergne.
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+# Zruš starší rozjetý běh na stejné větvi/PR, ať se nehromadí.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Rychlá statická brána: lint + typecheck. Nepotřebuje DB. ──────────────
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run lint
+      - run: npm run typecheck
+
+  # ── Migrace + build proti ČERSTVÉMU Postgresu. ───────────────────────────
+  # Tohle je hlídač paralelních issues: `migrate deploy` přehraje VŠECHNY
+  # migrace v pořadí na prázdnou DB → pokud dva PR přidaly kolidující migrace,
+  # spadne to tady, ne až v produkci. `migrate diff --exit-code` navíc chytí
+  # drift (změnil jsi schema.prisma a zapomněl přidat migraci).
+  migrate-build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Reálná (dosažitelná) DB pro migrace i případný DB-fetch při buildu.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      # Build potřebuje, aby proměnné existovaly — Stripe/S3/Prisma se ale
+      # inicializují líně (getStripe(), lazy klient), takže stačí dummy hodnoty.
+      NEXTAUTH_SECRET: ci-dummy-secret
+      NEXTAUTH_URL: http://localhost:3000
+      APP_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      AWS_ACCESS_KEY_ID: ci-dummy
+      AWS_SECRET_ACCESS_KEY: ci-dummy
+      AWS_S3_BUCKET: ci-dummy
+      AWS_REGION: auto
+      STRIPE_SECRET_KEY: sk_test_ci_dummy
+      STRIPE_PUBLISHABLE_KEY: pk_test_ci_dummy
+      STRIPE_WEBHOOK_SECRET: whsec_ci_dummy
+      STRIPE_PRO_PRICE_ID: price_ci_dummy
+      STRIPE_TEAM_PRICE_ID: price_ci_dummy
+      CRON_SECRET: ci-dummy
+      PLATFORM_FEE_BPS: "500"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+
+      # 1) Všechny migrace musí čistě naběhnout v pořadí na prázdnou DB.
+      - name: Apply migrations (parallel-collision guard)
+        run: npx prisma migrate deploy
+
+      # 2) Schéma vs. migrace — drift = chybějící migrace pro změnu v schema.prisma.
+      #    Porovná živou (už zmigrovanou) DB se schema.prisma; exit 2 = nesoulad.
+      - name: Check for schema drift
+        run: |
+          npx prisma migrate diff \
+            --from-config-datasource \
+            --to-schema prisma/schema.prisma \
+            --exit-code
+
+      # 3) Produkční build (jak ho dělá Vercel: prisma generate && next build).
+      - name: Build
+        run: npm run build
