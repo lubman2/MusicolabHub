@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyToken, type SessionPayload } from "@/lib/session";
 import type { User } from "@/generated/prisma";
 import type { MemberRole } from "@/generated/prisma";
+import { can, type Permission } from "@/lib/rbac";
 
 const COOKIE_NAME = "session";
 
@@ -73,24 +74,27 @@ export async function withAuth(
 }
 
 /**
- * Checks whether the user has one of the allowed roles on the given project.
- * Project owners are always authorized (owner role is implicit via Project.ownerId).
+ * Checks whether the user may act on a project under one of `allowedRoles`.
+ * Global admins and project owners are always authorized.
  */
 export async function authorizeProjectMember(
   userId: string,
   projectId: string,
   allowedRoles: MemberRole[],
 ): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+  if (user?.role === "admin") return true;
+
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     select: { ownerId: true },
   });
   if (!project) return false;
-
-  // Owner is always authorized
   if (project.ownerId === userId) return true;
 
-  // Check membership
   const member = await prisma.projectMember.findUnique({
     where: { projectId_userId: { projectId, userId } },
     select: { role: true },
@@ -98,6 +102,38 @@ export async function authorizeProjectMember(
   if (!member) return false;
 
   return allowedRoles.includes(member.role);
+}
+
+/**
+ * Matrix-driven authorization: checks a single `Permission` against the
+ * PERMISSIONS source of truth. Global admins and project owners are always
+ * authorized.
+ */
+export async function authorizeProjectPermission(
+  userId: string,
+  projectId: string,
+  permission: Permission,
+): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+  if (user?.role === "admin") return true;
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { ownerId: true },
+  });
+  if (!project) return false;
+  if (project.ownerId === userId) return true;
+
+  const member = await prisma.projectMember.findUnique({
+    where: { projectId_userId: { projectId, userId } },
+    select: { role: true },
+  });
+  if (!member) return false;
+
+  return can(member.role, permission);
 }
 
 export function unauthorized() {
