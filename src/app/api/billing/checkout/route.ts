@@ -1,23 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getStripe, getPlans, TRIAL_PERIOD_DAYS, type PlanKey } from "@/lib/stripe";
+import { getCurrentUser, unauthorized } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
-  let body: { userId?: string; plan?: string };
+  const authedUser = await getCurrentUser(request);
+  if (!authedUser) {
+    return unauthorized();
+  }
+
+  let body: { plan?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { userId, plan } = body;
-
-  if (!userId || typeof userId !== "string") {
-    return NextResponse.json(
-      { error: "userId is required" },
-      { status: 400 },
-    );
-  }
+  const { plan } = body;
+  const userId = authedUser.id;
 
   const plans = getPlans();
 
