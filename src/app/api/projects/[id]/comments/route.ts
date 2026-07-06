@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
   getUserId,
-  authorizeProjectMember,
+  authorizeProjectPermission,
   unauthorized,
   forbidden,
 } from "@/lib/auth";
@@ -13,8 +13,6 @@ import {
 import type { TargetType } from "@/generated/prisma";
 
 const VALID_TARGET_TYPES: TargetType[] = ["project", "file", "version"];
-
-const COMMENT_ALLOWED_ROLES = ["owner", "editor", "commenter"] as const;
 
 interface CreateThreadBody {
   targetType: string;
@@ -36,11 +34,7 @@ export async function POST(
   const userId = await getUserId(req);
   if (!userId) return unauthorized();
 
-  const allowed = await authorizeProjectMember(
-    userId,
-    projectId,
-    [...COMMENT_ALLOWED_ROLES],
-  );
+  const allowed = await authorizeProjectPermission(userId, projectId, "add_comment");
   if (!allowed) return forbidden();
 
   // Parse body
