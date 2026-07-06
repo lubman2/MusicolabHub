@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth";
+import { getAuthUser, authorizeProjectPermission } from "@/lib/auth";
 import {
   buildS3Key,
   generatePresignedUploadUrl,
@@ -103,17 +103,8 @@ export async function POST(
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  const isOwner = project.ownerId === user.id;
-  let isEditor = false;
-  if (!isOwner) {
-    const membership = await prisma.projectMember.findUnique({
-      where: { projectId_userId: { projectId, userId: user.id } },
-      select: { role: true },
-    });
-    isEditor = membership?.role === "editor" || membership?.role === "owner";
-  }
-
-  if (!isOwner && !isEditor) {
+  const authed = await authorizeProjectPermission(user.id, projectId, "upload_files");
+  if (!authed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
