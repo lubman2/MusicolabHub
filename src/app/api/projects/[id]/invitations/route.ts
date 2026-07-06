@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, authorizeProjectPermission } from "@/lib/auth";
 import { sendInvitationEmail } from "@/lib/email";
 import { createNotification } from "@/lib/notifications";
 import { expireStaleInvitations } from "@/lib/invitations";
@@ -31,7 +31,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  if (project.ownerId !== user.id && user.role !== "admin") {
+  const authed = await authorizeProjectPermission(user.id, projectId, "invite_collaborator");
+  if (!authed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -224,7 +225,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  if (project.ownerId !== user.id && user.role !== "admin") {
+  const authed = await authorizeProjectPermission(user.id, projectId, "invite_collaborator");
+  if (!authed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

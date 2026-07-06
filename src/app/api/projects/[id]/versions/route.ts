@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth";
+import { getAuthUser, authorizeProjectPermission } from "@/lib/auth";
 import type { VersionStatus } from "@/generated/prisma";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -32,6 +32,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
+
+  const authed = await authorizeProjectPermission(user.id, projectId, "view_project");
+  if (!authed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // --- Determine role ---
@@ -155,18 +160,8 @@ export async function POST(
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  // --- Authz: owner or editor ---
-  const isOwner = project.ownerId === user.id;
-  let isEditor = false;
-  if (!isOwner) {
-    const membership = await prisma.projectMember.findUnique({
-      where: { projectId_userId: { projectId, userId: user.id } },
-      select: { role: true },
-    });
-    isEditor = membership?.role === "editor" || membership?.role === "owner";
-  }
-
-  if (!isOwner && !isEditor) {
+  const authed = await authorizeProjectPermission(user.id, projectId, "create_version");
+  if (!authed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

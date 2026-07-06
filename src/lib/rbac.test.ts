@@ -14,3 +14,15 @@ test("viewer cannot upload files", () => {
 test("commenter cannot moderate comments", () => {
   assert.equal(can("commenter", "moderate_comments"), false);
 });
+test("editor can create version", () => {
+  assert.equal(can("editor", "create_version"), true);
+});
+test("commenter cannot create version", () => {
+  assert.equal(can("commenter", "create_version"), false);
+});
+test("owner can manage project lifecycle", () => {
+  assert.equal(can("owner", "manage_project_lifecycle"), true);
+});
+test("editor cannot manage project lifecycle", () => {
+  assert.equal(can("editor", "manage_project_lifecycle"), false);
+});

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser, getCurrentUser } from "@/lib/auth";
+import { getAuthUser, getCurrentUser, authorizeProjectPermission } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-log";
+import type { Permission } from "@/lib/rbac";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -28,7 +29,7 @@ const PROJECT_SELECT = {
 async function loadAuthorizedProject(
   projectId: string,
   userId: string,
-  requireEditor: boolean,
+  permission: Permission,
 ): Promise<
   | { ok: true; project: { ownerId: string } }
   | { ok: false; status: number; error: string }
@@ -42,24 +43,9 @@ async function loadAuthorizedProject(
     return { ok: false, status: 404, error: "Project not found" };
   }
 
-  const isOwner = project.ownerId === userId;
-  if (isOwner) return { ok: true, project };
-
-  const membership = await prisma.projectMember.findUnique({
-    where: { projectId_userId: { projectId, userId } },
-    select: { role: true },
-  });
-
-  if (!membership) {
-    return { ok: false, status: 404, error: "Project not found" };
-  }
-
-  if (requireEditor) {
-    const canEdit =
-      membership.role === "editor" || membership.role === "owner";
-    if (!canEdit) {
-      return { ok: false, status: 403, error: "Forbidden" };
-    }
+  const authed = await authorizeProjectPermission(userId, projectId, permission);
+  if (!authed) {
+    return { ok: false, status: 403, error: "Forbidden" };
   }
 
   return { ok: true, project };
@@ -74,7 +60,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   const { id: projectId } = await params;
 
-  const auth = await loadAuthorizedProject(projectId, user.id, false);
+  const auth = await loadAuthorizedProject(projectId, user.id, "view_project");
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
@@ -101,7 +87,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
   const { id: projectId } = await params;
 
-  const auth = await loadAuthorizedProject(projectId, user.id, true);
+  const auth = await loadAuthorizedProject(projectId, user.id, "edit_project_metadata");
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
@@ -310,7 +296,12 @@ export async function DELETE(
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  if (project.ownerId !== user.id) {
+  const authed = await authorizeProjectPermission(
+    user.id,
+    projectId,
+    "manage_project_lifecycle",
+  );
+  if (!authed) {
     return NextResponse.json(
       { error: "Only the project owner can delete this project" },
       { status: 403 },

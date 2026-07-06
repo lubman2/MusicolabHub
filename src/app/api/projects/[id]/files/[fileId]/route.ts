@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth";
+import { getAuthUser, authorizeProjectPermission } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-log";
 import { generatePresignedDownloadUrl } from "@/lib/s3";
 
@@ -26,17 +26,8 @@ export async function GET(
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  const isOwner = project.ownerId === user.id;
-  let isEditor = false;
-  if (!isOwner) {
-    const membership = await prisma.projectMember.findUnique({
-      where: { projectId_userId: { projectId, userId: user.id } },
-      select: { role: true },
-    });
-    isEditor = membership?.role === "editor" || membership?.role === "owner";
-  }
-
-  if (!isOwner && !isEditor) {
+  const authed = await authorizeProjectPermission(user.id, projectId, "download_files");
+  if (!authed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -124,7 +115,8 @@ export async function DELETE(
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  if (project.ownerId !== user.id) {
+  const authed = await authorizeProjectPermission(user.id, projectId, "delete_published");
+  if (!authed) {
     return NextResponse.json(
       { error: "Only the project owner can delete files" },
       { status: 403 },

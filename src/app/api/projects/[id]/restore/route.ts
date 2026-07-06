@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth";
+import { getAuthUser, authorizeProjectPermission } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-log";
 
 /**
@@ -34,7 +34,12 @@ export async function PUT(
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  if (project.ownerId !== user.id) {
+  const authed = await authorizeProjectPermission(
+    user.id,
+    projectId,
+    "manage_project_lifecycle",
+  );
+  if (!authed) {
     return NextResponse.json(
       { error: "Only the project owner can restore this project" },
       { status: 403 },
