@@ -1,20 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser, authorizeProjectPermission } from "@/lib/auth";
+import { authorizeProjectPermission } from "@/lib/auth";
 import { checkFileExists } from "@/lib/s3";
 import { logActivity } from "@/lib/activity-log";
+import { withActiveSubscription } from "@/lib/subscription";
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export const POST = withActiveSubscription(
+  "write",
+  async (request, { user }, routeContext) => {
+  const { params } = routeContext as { params: Promise<{ id: string }> };
   const { id: projectId } = await params;
-
-  // --- Auth ---
-  const user = await getAuthUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   // --- Parse body ---
   let body: { fileId?: string };
@@ -111,4 +106,5 @@ export async function POST(
     mimeType: updated.mimeType,
     fileSize: updated.fileSize,
   });
-}
+  },
+);

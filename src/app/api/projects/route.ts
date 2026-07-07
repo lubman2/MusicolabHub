@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-log";
+import { withActiveSubscription } from "@/lib/subscription";
 
 const TITLE_MIN = 3;
 const TITLE_MAX = 100;
@@ -112,12 +113,9 @@ export async function GET(request: NextRequest) {
  *   description: string | null, optional, max 5000 chars
  *   genre:       string | null, optional, max 100 chars
  */
-export async function POST(request: NextRequest) {
-  const user = await getCurrentUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const POST = withActiveSubscription(
+  "write",
+  async (request, { user }) => {
   let body: { title?: unknown; description?: unknown; genre?: unknown };
   try {
     body = await request.json();
@@ -209,4 +207,5 @@ export async function POST(request: NextRequest) {
   });
 
   return NextResponse.json(project, { status: 201 });
-}
+  },
+);

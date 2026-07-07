@@ -9,6 +9,7 @@ import {
 } from "@/lib/gigs";
 import { logActivity } from "@/lib/activity-log";
 import type { ActivityAction, GigStatus } from "@/generated/prisma";
+import { withActiveSubscription } from "@/lib/subscription";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -84,12 +85,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  *
  * Editable fields can only be updated while the gig is in `draft`.
  */
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  const user = await getCurrentUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const PATCH = withActiveSubscription(
+  "write",
+  async (request, { user }, routeContext) => {
+  const { params } = routeContext as RouteParams;
   const { id: gigId } = await params;
 
   const auth = await loadGigForOwner(gigId, user.id);
@@ -209,7 +208,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 
   return NextResponse.json(updated);
-}
+  },
+);
 
 /**
  * DELETE /api/gigs/[id] — owner-only hard delete, allowed only on drafts.
