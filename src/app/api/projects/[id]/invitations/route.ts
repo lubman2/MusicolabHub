@@ -1,15 +1,15 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, authorizeProjectPermission } from "@/lib/auth";
 import { sendInvitationEmail } from "@/lib/email";
 import { createNotification } from "@/lib/notifications";
 import { expireStaleInvitations } from "@/lib/invitations";
+import { GRANTABLE_MEMBER_ROLES } from "@/lib/rbac";
 import type { MemberRole } from "@/generated/prisma";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
-const VALID_ROLES: MemberRole[] = ["editor", "commenter", "viewer"];
 const INVITE_EXPIRY_DAYS = 7;
 
 /** POST /api/projects/[id]/invitations — create invitation (owner only) */
@@ -24,14 +24,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // Verify project exists and user is owner
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { ownerId: true, title: true },
+    select: { title: true },
   });
 
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  if (project.ownerId !== user.id && user.role !== "admin") {
+  const authed = await authorizeProjectPermission(user.id, projectId, "invite_collaborator");
+  if (!authed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -58,9 +59,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     );
   }
 
-  if (!VALID_ROLES.includes(role)) {
+  if (!(GRANTABLE_MEMBER_ROLES as readonly MemberRole[]).includes(role)) {
     return NextResponse.json(
-      { error: `role must be one of: ${VALID_ROLES.join(", ")}` },
+      { error: `role must be one of: ${GRANTABLE_MEMBER_ROLES.join(", ")}` },
       { status: 400 },
     );
   }
@@ -217,14 +218,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { ownerId: true },
+    select: { id: true },
   });
 
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  if (project.ownerId !== user.id && user.role !== "admin") {
+  const authed = await authorizeProjectPermission(user.id, projectId, "invite_collaborator");
+  if (!authed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

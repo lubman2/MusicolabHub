@@ -2,13 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
   getUserId,
-  authorizeProjectMember,
+  authorizeProjectPermission,
   unauthorized,
   forbidden,
 } from "@/lib/auth";
-
-const COMMENT_AUTHOR_ROLES = ["owner", "editor", "commenter"] as const;
-const MODERATOR_ROLES = ["owner"] as const;
 
 /**
  * Window during which a comment author may delete their own comment.
@@ -34,10 +31,10 @@ export async function DELETE(
   const userId = await getUserId(req);
   if (!userId) return unauthorized();
 
-  const isAuthorRoleOk = await authorizeProjectMember(
+  const isAuthorRoleOk = await authorizeProjectPermission(
     userId,
     projectId,
-    [...COMMENT_AUTHOR_ROLES],
+    "delete_own_comment",
   );
   if (!isAuthorRoleOk) return forbidden();
 
@@ -68,10 +65,10 @@ export async function DELETE(
     );
   }
 
-  const isModerator = await authorizeProjectMember(
+  const isModerator = await authorizeProjectPermission(
     userId,
     projectId,
-    [...MODERATOR_ROLES],
+    "moderate_comments",
   );
   const isAuthor = comment.authorId === userId;
   const isRecent =

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, authorizeProjectPermission } from "@/lib/auth";
 
 type RouteParams = { params: Promise<{ id: string; splitId: string }> };
 
@@ -13,23 +13,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   const { id: projectId, splitId } = await params;
 
-  // Allow project owner or any project member
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { ownerId: true },
+    select: { id: true },
   });
 
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  if (project.ownerId !== user.id) {
-    const member = await prisma.projectMember.findUnique({
-      where: { projectId_userId: { projectId, userId: user.id } },
-    });
-    if (!member) {
-      return NextResponse.json({ error: "Not a project member" }, { status: 403 });
-    }
+  const authed = await authorizeProjectPermission(user.id, projectId, "view_split");
+  if (!authed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const split = await prisma.splitRecord.findFirst({
@@ -82,14 +77,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
   const split = await prisma.splitRecord.findFirst({
     where: { id: splitId, projectId },
-    include: { project: { select: { ownerId: true } } },
   });
 
   if (!split) {
     return NextResponse.json({ error: "Split not found" }, { status: 404 });
   }
 
-  if (split.project.ownerId !== user.id) {
+  const authed = await authorizeProjectPermission(user.id, projectId, "manage_split");
+  if (!authed) {
     return NextResponse.json(
       { error: "Only the project owner can delete splits" },
       { status: 403 },

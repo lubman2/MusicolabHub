@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyToken, type SessionPayload } from "@/lib/session";
 import type { User } from "@/generated/prisma";
 import type { MemberRole } from "@/generated/prisma";
-import { can, type Permission } from "@/lib/rbac";
+import { decideProjectPermission, type Permission } from "@/lib/rbac";
 
 const COOKIE_NAME = "session";
 
@@ -114,26 +114,27 @@ export async function authorizeProjectPermission(
   projectId: string,
   permission: Permission,
 ): Promise<boolean> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { role: true },
-  });
-  if (user?.role === "admin") return true;
+  const [user, project, member] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { role: true } }),
+    prisma.project.findUnique({
+      where: { id: projectId },
+      select: { ownerId: true },
+    }),
+    prisma.projectMember.findUnique({
+      where: { projectId_userId: { projectId, userId } },
+      select: { role: true },
+    }),
+  ]);
 
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { ownerId: true },
-  });
-  if (!project) return false;
-  if (project.ownerId === userId) return true;
-
-  const member = await prisma.projectMember.findUnique({
-    where: { projectId_userId: { projectId, userId } },
-    select: { role: true },
-  });
-  if (!member) return false;
-
-  return can(member.role, permission);
+  return decideProjectPermission(
+    {
+      userId,
+      globalRole: user?.role ?? null,
+      projectOwnerId: project?.ownerId ?? null,
+      memberRole: member?.role ?? null,
+    },
+    permission,
+  );
 }
 
 export function unauthorized() {
