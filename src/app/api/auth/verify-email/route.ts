@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  process.env.APP_URL ||
+  "http://localhost:3000";
+
 /**
  * GET /api/auth/verify-email?token=... — target of the signup e-mail link.
  * Redirects to /login with a status flag rather than returning JSON,
@@ -8,7 +13,7 @@ import { prisma } from "@/lib/prisma";
  */
 export async function GET(request: NextRequest) {
   const redirectToLogin = (params: string) =>
-    NextResponse.redirect(new URL(`/login${params}`, request.nextUrl.origin));
+    NextResponse.redirect(new URL(`/login${params}`, APP_URL));
 
   const token = request.nextUrl.searchParams.get("token");
   if (!token) {
