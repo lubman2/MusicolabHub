@@ -80,9 +80,14 @@ export async function releasePayout(
 
   // Atomically claim the payout before touching Stripe: if a concurrent
   // trigger (buyer approval vs nightly sweep) already claimed it, count === 0
-  // and we walk away — at most one transfer can ever fire per payout.
+  // and we walk away — at most one transfer can ever fire per payout. The
+  // claim also pins blockReason: without it, an admin hold placed between the
+  // read above and this claim (status stays "blocked", blockReason flips to
+  // "admin_hold") would match on status alone, get silently claimed and
+  // transferred, and then have its blockReason erased by the success update
+  // below — overriding the hold instead of respecting it.
   const claimed = await prisma.payoutRecord.updateMany({
-    where: { id: payout.id, status: payout.status },
+    where: { id: payout.id, status: payout.status, blockReason: payout.blockReason },
     data: { status: "in_transit" },
   });
   if (claimed.count === 0) {
@@ -117,7 +122,7 @@ export async function releasePayout(
     await prisma.payoutRecord
       .update({
         where: { id: payout.id },
-        data: { status: payout.status },
+        data: { status: payout.status, blockReason: payout.blockReason },
       })
       .catch((revertErr) => {
         console.error(`Failed to revert claim on payout ${payout.id}:`, revertErr);
