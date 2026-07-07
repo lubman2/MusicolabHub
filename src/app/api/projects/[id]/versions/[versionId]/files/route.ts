@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser, authorizeProjectPermission } from "@/lib/auth";
+import { authorizeProjectPermission } from "@/lib/auth";
+import { withActiveSubscription } from "@/lib/subscription";
 
 /**
  * POST /api/projects/:id/versions/:versionId/files — attach files to a draft version.
@@ -8,17 +9,13 @@ import { getAuthUser, authorizeProjectPermission } from "@/lib/auth";
  * Creates VersionFile join records linking ProjectFiles to the version.
  * Skips files already attached (idempotent for duplicates).
  */
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string; versionId: string }> },
-) {
+export const POST = withActiveSubscription(
+  "write",
+  async (request, { user }, routeContext) => {
+  const { params } = routeContext as {
+    params: Promise<{ id: string; versionId: string }>;
+  };
   const { id: projectId, versionId } = await params;
-
-  // --- Auth ---
-  const user = await getAuthUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   // --- Parse body ---
   let body: { fileIds?: string[] };
@@ -121,4 +118,5 @@ export async function POST(
   });
 
   return NextResponse.json(updated, { status: 201 });
-}
+  },
+);
