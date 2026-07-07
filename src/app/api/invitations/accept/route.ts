@@ -4,6 +4,9 @@ import { getCurrentUser, unauthorized, forbidden } from "@/lib/auth";
 import { expireStaleInvitations } from "@/lib/invitations";
 import { createNotification } from "@/lib/notifications";
 
+/** Thrown when the atomic pending->accepted flip loses a race (RBAC-20 backstop). */
+class InvitationNotPendingError extends Error {}
+
 /** POST /api/invitations/accept — redeem an invitation token (AC-03, RBAC-19). */
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser(request);
@@ -54,35 +57,57 @@ export async function POST(request: NextRequest) {
     : invitation.inviteeEmail.toLowerCase() === user.email.toLowerCase();
   if (!identityMatches) return forbidden();
 
-  await prisma.$transaction(async (tx) => {
-    await tx.projectMember.upsert({
-      where: {
-        projectId_userId: { projectId: invitation.projectId, userId: user.id },
-      },
-      create: {
-        projectId: invitation.projectId,
-        userId: user.id,
-        role: invitation.role,
-      },
-      update: {},
-    });
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Atomic gate: only flip pending -> accepted. If another request won
+      // the race (e.g. a concurrent accept, or the lazy-expiry pass), this
+      // updateMany touches zero rows and we abort the transaction.
+      const flipped = await tx.invitation.updateMany({
+        where: { id: invitation.id, status: "pending" },
+        data: { status: "accepted", inviteeUserId: user.id },
+      });
+      if (flipped.count === 0) {
+        throw new InvitationNotPendingError();
+      }
 
-    await tx.invitation.update({
-      where: { id: invitation.id },
-      data: { status: "accepted", inviteeUserId: user.id },
-    });
+      await tx.projectMember.upsert({
+        where: {
+          projectId_userId: { projectId: invitation.projectId, userId: user.id },
+        },
+        create: {
+          projectId: invitation.projectId,
+          userId: user.id,
+          role: invitation.role,
+        },
+        update: {},
+      });
 
-    await tx.activityLog.create({
-      data: {
-        projectId: invitation.projectId,
-        actorId: user.id,
-        action: "member_joined",
-        targetType: "invitation",
-        targetId: invitation.id,
-        metadata: {},
-      },
+      await tx.activityLog.create({
+        data: {
+          projectId: invitation.projectId,
+          actorId: user.id,
+          action: "member_joined",
+          targetType: "invitation",
+          targetId: invitation.id,
+          metadata: {},
+        },
+      });
     });
-  });
+  } catch (err) {
+    if (err instanceof InvitationNotPendingError) {
+      const current = await prisma.invitation.findUnique({
+        where: { id: invitation.id },
+        select: { status: true },
+      });
+      return NextResponse.json(
+        {
+          error: `Cannot accept invitation with status: ${current?.status ?? "accepted"}`,
+        },
+        { status: 409 },
+      );
+    }
+    throw err;
+  }
 
   // Post-commit, non-blocking (createNotification swallows its own errors).
   await createNotification({
