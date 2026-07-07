@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
   getUserId,
-  authorizeProjectMember,
+  authorizeProjectPermission,
   unauthorized,
   forbidden,
 } from "@/lib/auth";
-
-const MODERATOR_ROLES = ["owner"] as const;
 
 /**
  * PUT /api/projects/[id]/comments/[threadId]/resolve
@@ -22,11 +20,7 @@ export async function PUT(
   const userId = await getUserId(req);
   if (!userId) return unauthorized();
 
-  const allowed = await authorizeProjectMember(
-    userId,
-    projectId,
-    [...MODERATOR_ROLES],
-  );
+  const allowed = await authorizeProjectPermission(userId, projectId, "moderate_comments");
   if (!allowed) return forbidden();
 
   const thread = await prisma.commentThread.findFirst({
