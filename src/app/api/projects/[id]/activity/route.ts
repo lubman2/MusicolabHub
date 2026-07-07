@@ -2,13 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
   getUserId,
-  authorizeProjectMember,
+  authorizeProjectPermission,
   unauthorized,
   forbidden,
 } from "@/lib/auth";
 import type { ActivityAction } from "@/generated/prisma";
-
-const VIEW_ROLES = ["owner", "editor", "commenter", "viewer"] as const;
 
 const VALID_ACTIONS: readonly ActivityAction[] = [
   "file_uploaded",
@@ -58,11 +56,7 @@ export async function GET(
   const userId = await getUserId(req);
   if (!userId) return unauthorized();
 
-  const allowed = await authorizeProjectMember(
-    userId,
-    projectId,
-    [...VIEW_ROLES],
-  );
+  const allowed = await authorizeProjectPermission(userId, projectId, "view_project");
   if (!allowed) return forbidden();
 
   const { searchParams } = new URL(req.url);

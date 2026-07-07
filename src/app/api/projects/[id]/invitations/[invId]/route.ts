@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, authorizeProjectPermission } from "@/lib/auth";
 
 type RouteParams = { params: Promise<{ id: string; invId: string }> };
 
@@ -15,14 +15,15 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { ownerId: true },
+    select: { id: true },
   });
 
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  if (project.ownerId !== user.id && user.role !== "admin") {
+  const authed = await authorizeProjectPermission(user.id, projectId, "invite_collaborator");
+  if (!authed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
