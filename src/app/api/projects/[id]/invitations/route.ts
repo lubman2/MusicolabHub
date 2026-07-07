@@ -5,11 +5,11 @@ import { getCurrentUser, authorizeProjectPermission } from "@/lib/auth";
 import { sendInvitationEmail } from "@/lib/email";
 import { createNotification } from "@/lib/notifications";
 import { expireStaleInvitations } from "@/lib/invitations";
+import { GRANTABLE_MEMBER_ROLES } from "@/lib/rbac";
 import type { MemberRole } from "@/generated/prisma";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
-const VALID_ROLES: MemberRole[] = ["editor", "commenter", "viewer"];
 const INVITE_EXPIRY_DAYS = 7;
 
 /** POST /api/projects/[id]/invitations — create invitation (owner only) */
@@ -59,9 +59,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     );
   }
 
-  if (!VALID_ROLES.includes(role)) {
+  if (!(GRANTABLE_MEMBER_ROLES as readonly MemberRole[]).includes(role)) {
     return NextResponse.json(
-      { error: `role must be one of: ${VALID_ROLES.join(", ")}` },
+      { error: `role must be one of: ${GRANTABLE_MEMBER_ROLES.join(", ")}` },
       { status: 400 },
     );
   }

@@ -25,6 +25,20 @@ export const PERMISSIONS = {
   delete_published: ["owner"],
 } satisfies Record<string, readonly MemberRole[]>;
 
+/**
+ * Member roles that API surfaces may grant (invitations, hires, gig
+ * applications). Deliberately excludes "owner": a ProjectMember row with
+ * role "owner" is treated as owner-equivalent by the permission matrix
+ * (see the owner rows above), so granting it would hand out full control.
+ * Only Project.ownerId — set at project creation — confers ownership.
+ * Guarded by unit tests in rbac.test.ts.
+ */
+export const GRANTABLE_MEMBER_ROLES = [
+  "editor",
+  "commenter",
+  "viewer",
+] as const satisfies readonly MemberRole[];
+
 export type Permission = keyof typeof PERMISSIONS;
 
 /** Pure matrix lookup: does `role` hold `permission`? */
