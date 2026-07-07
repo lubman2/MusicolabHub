@@ -72,6 +72,7 @@ export default function VersionDetailPage() {
   const [version, setVersion] = useState<VersionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [attachError, setAttachError] = useState<string | null>(null);
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [acting, setActing] = useState(false);
 
@@ -110,6 +111,7 @@ export default function VersionDetailPage() {
   };
 
   async function handleFilesUploaded(fileIds: string[]) {
+    setAttachError(null);
     const res = await fetch(
       `/api/projects/${projectId}/versions/${versionId}/files`,
       {
@@ -120,7 +122,7 @@ export default function VersionDetailPage() {
     );
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      setError(err.error || "Failed to attach uploaded files to this version");
+      setAttachError(err.error || "Failed to attach uploaded files to this version");
       return;
     }
     setReloadTrigger((prev) => prev + 1);
@@ -187,6 +189,12 @@ export default function VersionDetailPage() {
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4">
             <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
+
+        {attachError && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4">
+            <p className="text-sm text-red-800">{attachError}</p>
           </div>
         )}
 
