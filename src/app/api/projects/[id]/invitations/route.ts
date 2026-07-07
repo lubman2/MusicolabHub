@@ -24,7 +24,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // Verify project exists and user is owner
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { ownerId: true, title: true },
+    select: { title: true },
   });
 
   if (!project) {
@@ -218,7 +218,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { ownerId: true },
+    select: { id: true },
   });
 
   if (!project) {

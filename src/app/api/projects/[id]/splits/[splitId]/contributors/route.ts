@@ -16,7 +16,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // Verify split exists, belongs to project, is draft, and caller is owner
   const split = await prisma.splitRecord.findFirst({
     where: { id: splitId, projectId },
-    include: { project: { select: { ownerId: true } } },
   });
 
   if (!split) {

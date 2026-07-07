@@ -27,7 +27,7 @@ export async function PUT(
 
   const project = await prisma.project.findFirst({
     where: { id: projectId, deletedAt: null },
-    select: { id: true, ownerId: true, status: true },
+    select: { id: true, status: true },
   });
 
   if (!project) {

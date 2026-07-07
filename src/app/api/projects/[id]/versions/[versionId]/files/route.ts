@@ -40,7 +40,7 @@ export async function POST(
   // --- Check project exists and is active ---
   const project = await prisma.project.findUnique({
     where: { id: projectId, status: "active" },
-    select: { id: true, ownerId: true },
+    select: { id: true },
   });
 
   if (!project) {

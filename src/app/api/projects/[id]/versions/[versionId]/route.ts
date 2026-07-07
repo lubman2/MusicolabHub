@@ -159,7 +159,7 @@ export async function PATCH(
   // --- Check project exists and is active ---
   const project = await prisma.project.findUnique({
     where: { id: projectId, status: "active" },
-    select: { id: true, ownerId: true },
+    select: { id: true },
   });
 
   if (!project) {
@@ -276,7 +276,7 @@ export async function DELETE(
 
   const project = await prisma.project.findUnique({
     where: { id: projectId, status: "active" },
-    select: { id: true, ownerId: true },
+    select: { id: true },
   });
 
   if (!project) {

@@ -15,7 +15,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { ownerId: true },
+    select: { id: true },
   });
 
   if (!project) {
