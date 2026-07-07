@@ -18,6 +18,10 @@
     {
       "path": "/api/cron/purge-soft-deleted",
       "schedule": "20 3 * * *"
+    },
+    {
+      "path": "/api/cron/release-payouts",
+      "schedule": "30 3 * * *"
     }
   ],
   "headers": [
