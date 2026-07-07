@@ -6,13 +6,18 @@ import { randomBytes } from "crypto";
  * GDPR delete execution (audit R-11-05). Finds verified delete requests whose
  * 30-day retention window elapsed and purges the account:
  *  1. lazily create/find the system sentinel user,
- *  2. reassign the FK relations that have no onDelete: Cascade and must
- *     survive for legal/audit retention (files' uploader, versions' author,
- *     admin actions, gigs, hires, payments, payouts),
- *  3. move the delete request itself to the sentinel and mark it completed
+ *  2. delete the user's own personal content outright (GDPR Art. 17): their
+ *     comments (Comment.authorId) are erased, not reassigned,
+ *  3. anonymize the required non-cascade FKs that must survive for
+ *     container/audit/financial integrity (GDPR Art. 17(3)) by reassigning
+ *     them to the sentinel: comment threads' author, invitations' inviter,
+ *     activity log actor, split records' creator, split contributors,
+ *     files' uploader, versions' author, admin actions, gigs, hires,
+ *     payments, payouts,
+ *  4. move the delete request itself to the sentinel and mark it completed
  *     (so the audit trail survives the cascade),
- *  4. hard-delete the user — cascades remove profile, owned projects (incl.
- *     members/files/versions rows), comments, notifications, subscription, …
+ *  5. hard-delete the user — cascades remove profile, owned projects (incl.
+ *     members/files/versions rows), notifications, subscription, …
  * Owned projects' S3 objects are deleted before the row cascade.
  */
 
@@ -50,6 +55,32 @@ async function purgeOneAccount(
   }
 
   await prisma.$transaction([
+    // Personal content: delete outright rather than reassign (GDPR Art. 17).
+    prisma.comment.deleteMany({
+      where: { authorId: userId },
+    }),
+    // Containers/audit/financial trails: anonymize to the sentinel so the
+    // rows survive for legal/audit retention (GDPR Art. 17(3)).
+    prisma.commentThread.updateMany({
+      where: { authorId: userId },
+      data: { authorId: sentinelId },
+    }),
+    prisma.invitation.updateMany({
+      where: { inviterId: userId },
+      data: { inviterId: sentinelId },
+    }),
+    prisma.activityLog.updateMany({
+      where: { actorId: userId },
+      data: { actorId: sentinelId },
+    }),
+    prisma.splitRecord.updateMany({
+      where: { createdById: userId },
+      data: { createdById: sentinelId },
+    }),
+    prisma.splitContributor.updateMany({
+      where: { userId: userId },
+      data: { userId: sentinelId },
+    }),
     prisma.projectFile.updateMany({
       where: { uploaderId: userId },
       data: { uploaderId: sentinelId },
