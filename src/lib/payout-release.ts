@@ -78,6 +78,17 @@ export async function releasePayout(
     return "scheduled";
   }
 
+  // Atomically claim the payout before touching Stripe: if a concurrent
+  // trigger (buyer approval vs nightly sweep) already claimed it, count === 0
+  // and we walk away — at most one transfer can ever fire per payout.
+  const claimed = await prisma.payoutRecord.updateMany({
+    where: { id: payout.id, status: payout.status },
+    data: { status: "in_transit" },
+  });
+  if (claimed.count === 0) {
+    return "skipped";
+  }
+
   let transferId: string;
   try {
     const stripe = getStripe();
@@ -96,14 +107,27 @@ export async function releasePayout(
     transferId = transfer.id;
   } catch (err) {
     console.error(`[Payout] Transfer failed on ${trigger}:`, err);
-    // Leave the payout row untouched — the next auto-release sweep retries.
+    // Compensate: revert the claim so the row goes back to its pre-claim
+    // status and the next auto-release sweep retries the transfer. Note: a
+    // crash between the claim and this revert leaves the row stuck in
+    // `in_transit` with no transfer ever sent — rare, and surfaced via
+    // Stripe reconciliation / the admin view rather than silently retried.
+    // That's an acceptable trade-off against the double-transfer risk this
+    // guard exists to prevent.
+    await prisma.payoutRecord
+      .update({
+        where: { id: payout.id },
+        data: { status: payout.status },
+      })
+      .catch((revertErr) => {
+        console.error(`Failed to revert claim on payout ${payout.id}:`, revertErr);
+      });
     return "failed";
   }
 
   await prisma.payoutRecord.update({
     where: { id: payout.id },
     data: {
-      status: "in_transit",
       blockReason: null,
       releasedAt: now,
       stripeTransferId: transferId,
