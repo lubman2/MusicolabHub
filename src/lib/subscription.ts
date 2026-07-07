@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { expireTrialIfDue, getTrialInfo } from "@/lib/trial-expiry";
-import type { User, Subscription } from "@/generated/prisma";
+import type { User, Subscription, SubscriptionStatus } from "@/generated/prisma";
 
 /**
  * Subscription access levels:
@@ -21,6 +21,48 @@ type SubscriptionHandler = (
   ctx: SubscriptionContext,
   ...args: unknown[]
 ) => Promise<NextResponse> | NextResponse;
+
+/**
+ * Pure decision function for subscription access control.
+ *
+ * Rules (from PRD 8.4):
+ * - no subscription (status === null) → deny NO_SUBSCRIPTION
+ * - trialing / active → allow all access
+ * - past_due → allow read, block write unless within grace window
+ * - canceled / expired → block all access
+ */
+export function decideSubscriptionAccess(input: {
+  status: SubscriptionStatus | null;
+  accessLevel: "read" | "write";
+  currentPeriodEnd: Date | null;
+  now: Date;
+}): { allowed: boolean; code?: "NO_SUBSCRIPTION" | "SUBSCRIPTION_PAST_DUE" | "SUBSCRIPTION_INACTIVE" } {
+  const { status, accessLevel, currentPeriodEnd, now } = input;
+
+  if (status === null) {
+    return { allowed: false, code: "NO_SUBSCRIPTION" };
+  }
+
+  if (status === "trialing" || status === "active") {
+    return { allowed: true };
+  }
+
+  if (status === "past_due") {
+    if (accessLevel === "read") {
+      return { allowed: true };
+    }
+
+    // Write access: check grace period
+    if (currentPeriodEnd && currentPeriodEnd > now) {
+      return { allowed: true };
+    }
+
+    return { allowed: false, code: "SUBSCRIPTION_PAST_DUE" };
+  }
+
+  // canceled / expired
+  return { allowed: false, code: "SUBSCRIPTION_INACTIVE" };
+}
 
 /**
  * Access enforcement middleware for subscription-gated routes.
@@ -79,43 +121,36 @@ export function withActiveSubscription(
     // Lazy trial expiry: if trial elapsed, transition to expired before evaluating.
     subscription = await expireTrialIfDue(subscription);
 
-    const { status } = subscription;
+    const now = new Date();
+    const decision = decideSubscriptionAccess({
+      status: subscription.status,
+      accessLevel,
+      currentPeriodEnd: subscription.currentPeriodEnd,
+      now,
+    });
 
-    // trialing or active → full access
-    if (status === "trialing" || status === "active") {
+    if (decision.allowed) {
       return handler(req, { user, subscription }, ...args);
     }
 
-    // past_due → read access always allowed
-    if (status === "past_due") {
-      if (accessLevel === "read") {
-        return handler(req, { user, subscription }, ...args);
-      }
-
-      // Write access: check grace period
-      // currentPeriodEnd is set to now + GRACE_PERIOD_DAYS when past_due begins
-      if (
-        subscription.currentPeriodEnd &&
-        subscription.currentPeriodEnd > new Date()
-      ) {
-        return handler(req, { user, subscription }, ...args);
-      }
-
-      return NextResponse.json(
-        {
-          error: "Subscription payment overdue — write access suspended",
-          code: "SUBSCRIPTION_PAST_DUE",
-          redirect: "/pricing",
-        },
-        { status: 403 },
-      );
-    }
-
-    // canceled / expired → block everything
-    return NextResponse.json(
-      {
+    // Denied: return appropriate error response
+    const errorMessages: Record<string, { error: string; code: string }> = {
+      SUBSCRIPTION_PAST_DUE: {
+        error: "Subscription payment overdue — write access suspended",
+        code: "SUBSCRIPTION_PAST_DUE",
+      },
+      SUBSCRIPTION_INACTIVE: {
         error: "Subscription inactive",
         code: "SUBSCRIPTION_INACTIVE",
+      },
+    };
+
+    const msg = decision.code ? errorMessages[decision.code] : { error: "No active subscription", code: decision.code || "" };
+
+    return NextResponse.json(
+      {
+        error: msg.error,
+        code: msg.code,
         redirect: "/pricing",
       },
       { status: 403 },
@@ -151,26 +186,32 @@ export async function getSubscriptionStatus(userId: string): Promise<{
   subscription = await expireTrialIfDue(subscription);
   const trial = getTrialInfo(subscription);
   const { status, currentPeriodEnd } = subscription;
+  const now = new Date();
 
-  if (status === "trialing" || status === "active") {
-    return { canRead: true, canWrite: true, status, graceRemaining: null, trial };
-  }
+  const readDecision = decideSubscriptionAccess({
+    status,
+    accessLevel: "read",
+    currentPeriodEnd,
+    now,
+  });
 
-  if (status === "past_due") {
-    const now = new Date();
-    const graceRemaining =
-      currentPeriodEnd && currentPeriodEnd > now
-        ? Math.ceil((currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-        : 0;
-    return {
-      canRead: true,
-      canWrite: graceRemaining > 0,
-      status,
-      graceRemaining,
-      trial,
-    };
-  }
+  const writeDecision = decideSubscriptionAccess({
+    status,
+    accessLevel: "write",
+    currentPeriodEnd,
+    now,
+  });
 
-  // canceled / expired
-  return { canRead: false, canWrite: false, status, graceRemaining: null, trial };
+  const graceRemaining =
+    status === "past_due" && currentPeriodEnd && currentPeriodEnd > now
+      ? Math.ceil((currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+
+  return {
+    canRead: readDecision.allowed,
+    canWrite: writeDecision.allowed,
+    status,
+    graceRemaining,
+    trial,
+  };
 }
