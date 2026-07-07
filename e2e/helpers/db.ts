@@ -51,6 +51,28 @@ export async function cleanupUser(
   });
 }
 
+/**
+ * Add a user as a `ProjectMember` directly (via the gated /api/test helper).
+ *
+ * The invitation-accept flow doesn't exist on this branch, so this is the
+ * only reachable way to satisfy "contributor must be a project member"
+ * checks (e.g. split contributors) in an e2e test.
+ */
+export async function addProjectMember(
+  request: APIRequestContext,
+  projectId: string,
+  userId: string,
+): Promise<void> {
+  const res = await request.post(`/api/test/projects/${projectId}/members`, {
+    data: { userId },
+  });
+  if (!res.ok()) {
+    throw new Error(
+      `Failed to add project member ${userId} to ${projectId}: ${res.status()}`,
+    );
+  }
+}
+
 export async function getLatestReadyFileId(
   request: APIRequestContext,
   projectId: string,
