@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Nav } from "@/components/nav";
+import { safeNextPath } from "@/lib/safe-next";
 
 function LoginForm() {
   const router = useRouter();
@@ -11,10 +12,7 @@ function LoginForm() {
   const verified = searchParams.get("verified") === "1";
   const verifyError = searchParams.get("verify_error");
   const nextParam = searchParams.get("next");
-  const safeNext =
-    nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//")
-      ? nextParam
-      : null;
+  const safeNext = safeNextPath(nextParam);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
