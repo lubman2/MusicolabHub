@@ -17,7 +17,7 @@ export async function GET(
   // --- Check project exists and authz ---
   const project = await prisma.project.findUnique({
     where: { id: projectId, status: "active" },
-    select: { id: true, ownerId: true },
+    select: { id: true },
   });
 
   if (!project) {

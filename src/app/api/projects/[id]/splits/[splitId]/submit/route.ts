@@ -18,7 +18,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   const split = await prisma.splitRecord.findFirst({
     where: { id: splitId, projectId },
     include: {
-      project: { select: { ownerId: true } },
       contributors: true,
     },
   });

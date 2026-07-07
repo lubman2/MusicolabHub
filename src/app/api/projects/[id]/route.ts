@@ -31,12 +31,12 @@ async function loadAuthorizedProject(
   userId: string,
   permission: Permission,
 ): Promise<
-  | { ok: true; project: { ownerId: string } }
+  | { ok: true }
   | { ok: false; status: number; error: string }
 > {
   const project = await prisma.project.findUnique({
     where: { id: projectId, status: "active", deletedAt: null },
-    select: { ownerId: true },
+    select: { id: true },
   });
 
   if (!project) {
@@ -48,7 +48,7 @@ async function loadAuthorizedProject(
     return { ok: false, status: 403, error: "Forbidden" };
   }
 
-  return { ok: true, project };
+  return { ok: true };
 }
 
 /** GET /api/projects/[id] — fetch project metadata (any member). */
@@ -289,7 +289,7 @@ export async function DELETE(
 
   const project = await prisma.project.findFirst({
     where: { id: projectId, deletedAt: null },
-    select: { id: true, ownerId: true, status: true },
+    select: { id: true, status: true },
   });
 
   if (!project) {
