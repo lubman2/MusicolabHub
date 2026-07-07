@@ -59,4 +59,9 @@ test("versions UI: create → publish → delete", async ({
 
   // Default (published-only) view no longer lists the now-deleted version.
   await expect(page.getByText("e2e draft")).not.toBeVisible();
+
+  // Owner "show all" view (?status=all) confirms it's actually gone, not
+  // just filtered out of the published-only default.
+  await page.goto(`/projects/${projectId}/versions?status=all`);
+  await expect(page.getByText("e2e draft")).not.toBeVisible();
 });
