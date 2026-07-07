@@ -5,11 +5,12 @@ import type { MemberRole } from "@/generated/prisma";
 /**
  * POST /api/test/projects/:id/members — add a ProjectMember row directly.
  *
- * Gated behind `E2E_TEST_MODE=1`. Exists because this branch has no
- * invitation-accept flow yet (that lands in a separate PR) and the splits
- * "contributor must be a project member" rule otherwise has no reachable
- * path to satisfy in an e2e test. Mirrors the other `/api/test/*` seeding
- * helpers (gated the same way, 404s outside E2E_TEST_MODE).
+ * Gated behind `E2E_TEST_MODE=1`. This is a test-seeding shortcut, independent
+ * of whichever invitation-accept flow exists in the product (that's tracked
+ * and merged separately) — the splits "contributor must be a project member"
+ * rule otherwise has no reachable path to satisfy in an e2e test. Mirrors the
+ * other `/api/test/*` seeding helpers (gated the same way, 404s outside
+ * E2E_TEST_MODE).
  *
  * Body: { userId: string, role?: MemberRole }  (role defaults to "viewer")
  */

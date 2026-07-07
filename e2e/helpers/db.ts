@@ -54,9 +54,10 @@ export async function cleanupUser(
 /**
  * Add a user as a `ProjectMember` directly (via the gated /api/test helper).
  *
- * The invitation-accept flow doesn't exist on this branch, so this is the
- * only reachable way to satisfy "contributor must be a project member"
- * checks (e.g. split contributors) in an e2e test.
+ * This is a test-seeding shortcut, independent of whichever invitation flow
+ * exists in the product — it's the fastest reachable way to satisfy
+ * "contributor must be a project member" checks (e.g. split contributors)
+ * in an e2e test.
  */
 export async function addProjectMember(
   request: APIRequestContext,
