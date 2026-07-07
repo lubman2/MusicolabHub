@@ -21,7 +21,7 @@
     "@prisma/client": "^7.8.0",
     "jose": "^6.2.3",
     "next": "16.2.7",
-    "nodemailer": "^8.0.10",
+    "nodemailer": "^9.0.3",
     "pg": "^8.21.0",
     "prisma": "^7.8.0",
     "react": "19.2.7",
@@ -32,7 +32,7 @@
   "devDependencies": {
     "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^25",
+    "@types/node": "^26",
     "@types/nodemailer": "^8.0.0",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",

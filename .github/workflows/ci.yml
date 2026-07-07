@@ -18,8 +18,13 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+<<<<<<< HEAD
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
+=======
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+>>>>>>> origin/master
         with:
           node-version: 22
           cache: npm
@@ -71,8 +76,13 @@ jobs:
       PLATFORM_FEE_BPS: "500"
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
-      - uses: actions/checkout@v4
+<<<<<<< HEAD
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
+=======
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+>>>>>>> origin/master
         with:
           node-version: 22
           cache: npm
