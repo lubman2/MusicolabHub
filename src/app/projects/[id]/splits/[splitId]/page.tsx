@@ -169,6 +169,27 @@ export default function SplitEditorPage() {
     setSaving(false);
   }
 
+  async function handleSubmitSplit() {
+    if (
+      !confirm(
+        "Submit this split for contributor confirmation? Percentages can no longer be edited after submission.",
+      )
+    )
+      return;
+    setSaving(true);
+    const res = await fetch(`${apiBase}/submit`, {
+      method: "POST",
+      headers,
+    });
+    setSaving(false);
+    if (res.ok) {
+      setRefreshKey((k) => k + 1);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "Failed to submit split");
+    }
+  }
+
   async function handleDeleteSplit() {
     if (!confirm("Delete this draft split?")) return;
     const res = await fetch(apiBase, {
@@ -225,12 +246,26 @@ export default function SplitEditorPage() {
             </span>
           </div>
           {isDraft && (
-            <button
-              onClick={handleDeleteSplit}
-              className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
-            >
-              Delete Draft
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSubmitSplit}
+                disabled={saving || total !== 100}
+                title={
+                  total !== 100
+                    ? "Percentages must total exactly 100% before submitting"
+                    : undefined
+                }
+                className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white hover:bg-neutral-800 disabled:opacity-50"
+              >
+                Submit for Confirmation
+              </button>
+              <button
+                onClick={handleDeleteSplit}
+                className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+              >
+                Delete Draft
+              </button>
+            </div>
           )}
         </div>
 
