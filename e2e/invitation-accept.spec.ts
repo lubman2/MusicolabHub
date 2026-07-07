@@ -68,6 +68,10 @@ test.describe("invitation accept flow", () => {
     await page.getByRole("button", { name: /accept invitation/i }).click();
     await page.waitForURL(new RegExp(`/projects/${projectId}`));
 
+    // 3b. Pin the membership: the invitee's session can now fetch the project.
+    const memberCheck = await page.request.get(`/api/projects/${projectId}`);
+    expect(memberCheck.status()).toBe(200);
+
     // 4. Accepted invitation is not reusable (RBAC-20)
     const replay = await page.request.post("/api/invitations/accept", {
       data: { token },
