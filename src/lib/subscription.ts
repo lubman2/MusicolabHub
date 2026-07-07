@@ -145,7 +145,9 @@ export function withActiveSubscription(
       },
     };
 
-    const msg = decision.code ? errorMessages[decision.code] : { error: "No active subscription", code: decision.code || "" };
+    const msg = decision.code && decision.code in errorMessages
+      ? errorMessages[decision.code]
+      : { error: "Subscription required", code: decision.code || "UNKNOWN", redirect: "/pricing" };
 
     return NextResponse.json(
       {
@@ -202,10 +204,13 @@ export async function getSubscriptionStatus(userId: string): Promise<{
     now,
   });
 
-  const graceRemaining =
-    status === "past_due" && currentPeriodEnd && currentPeriodEnd > now
-      ? Math.ceil((currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-      : null;
+  let graceRemaining: number | null = null;
+  if (status === "past_due") {
+    graceRemaining =
+      currentPeriodEnd && currentPeriodEnd > now
+        ? Math.ceil((currentPeriodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+  }
 
   return {
     canRead: readDecision.allowed,
