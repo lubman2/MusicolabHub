@@ -1,4 +1,5 @@
 import type { HireStatus, MemberRole, Prisma } from "@/generated/prisma";
+import { GRANTABLE_MEMBER_ROLES } from "@/lib/rbac";
 
 export const HIRE_DELIVERY_NOTE_MAX = 10_000;
 export const HIRE_CANCEL_REASON_MAX = 2_000;
@@ -7,7 +8,7 @@ export const HIRE_CANCEL_REASON_MAX = 2_000;
  * Member roles the buyer may assign to a hired talent. Owner is
  * deliberately excluded — hiring never transfers project ownership.
  */
-export const HIRE_GRANTABLE_ROLES = ["viewer", "commenter", "editor"] as const;
+export const HIRE_GRANTABLE_ROLES = GRANTABLE_MEMBER_ROLES;
 export type HireGrantableRole = (typeof HIRE_GRANTABLE_ROLES)[number];
 
 export const HIRE_PUBLIC_SELECT = {

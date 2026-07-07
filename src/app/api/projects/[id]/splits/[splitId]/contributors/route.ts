@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, authorizeProjectPermission } from "@/lib/auth";
 
 type RouteParams = { params: Promise<{ id: string; splitId: string }> };
 
@@ -16,14 +16,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   // Verify split exists, belongs to project, is draft, and caller is owner
   const split = await prisma.splitRecord.findFirst({
     where: { id: splitId, projectId },
-    include: { project: { select: { ownerId: true } } },
   });
 
   if (!split) {
     return NextResponse.json({ error: "Split not found" }, { status: 404 });
   }
 
-  if (split.project.ownerId !== user.id) {
+  const authed = await authorizeProjectPermission(user.id, projectId, "manage_split");
+  if (!authed) {
     return NextResponse.json(
       { error: "Only the project owner can edit splits" },
       { status: 403 },
