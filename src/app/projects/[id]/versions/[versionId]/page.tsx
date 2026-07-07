@@ -3,7 +3,7 @@
 import { Nav } from "@/components/nav";
 import { ProjectTabs } from "@/components/project-tabs";
 import { BatchFileUpload } from "@/components/BatchFileUpload";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
@@ -68,10 +68,12 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function VersionDetailPage() {
   const { id: projectId, versionId } = useParams<{ id: string; versionId: string }>()!;
+  const router = useRouter();
   const [version, setVersion] = useState<VersionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [acting, setActing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,6 +108,62 @@ export default function VersionDetailPage() {
       setReloadTrigger((prev) => prev + 1);
     }
   };
+
+  async function handleFilesUploaded(fileIds: string[]) {
+    const res = await fetch(
+      `/api/projects/${projectId}/versions/${versionId}/files`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileIds }),
+      },
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      setError(err.error || "Failed to attach uploaded files to this version");
+      return;
+    }
+    setReloadTrigger((prev) => prev + 1);
+  }
+
+  async function handlePublish() {
+    if (!confirm("Publish this version? The current published version will be superseded.")) return;
+    setActing(true);
+    const res = await fetch(`/api/projects/${projectId}/versions/${versionId}`, { method: "PATCH" });
+    setActing(false);
+    if (res.ok) {
+      setReloadTrigger((prev) => prev + 1);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "Failed to publish version");
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm("Delete this version?")) return;
+    setActing(true);
+    let res = await fetch(`/api/projects/${projectId}/versions/${versionId}`, { method: "DELETE" });
+    if (res.status === 409) {
+      const err = await res.json().catch(() => ({}));
+      if (err.error === "confirmation_required") {
+        if (!confirm(err.message || "This version is published. Delete anyway?")) {
+          setActing(false);
+          return;
+        }
+        res = await fetch(
+          `/api/projects/${projectId}/versions/${versionId}?confirm=true`,
+          { method: "DELETE" },
+        );
+      }
+    }
+    setActing(false);
+    if (res.ok) {
+      router.push(`/projects/${projectId}/versions`);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "Failed to delete version");
+    }
+  }
 
   const isDraft = version?.status === "draft";
   const isSuperseded = version?.status === "superseded";
@@ -160,6 +218,27 @@ export default function VersionDetailPage() {
                     </p>
                   )}
                 </div>
+
+                <div className="flex shrink-0 gap-2">
+                  {version.status === "draft" && (
+                    <button
+                      onClick={handlePublish}
+                      disabled={acting}
+                      className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm text-white hover:bg-neutral-800 disabled:opacity-50"
+                    >
+                      Publish
+                    </button>
+                  )}
+                  {(version.status === "draft" || version.status === "published") && (
+                    <button
+                      onClick={handleDelete}
+                      disabled={acting}
+                      className="rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-neutral-500">
@@ -186,6 +265,7 @@ export default function VersionDetailPage() {
                 <BatchFileUpload
                   projectId={projectId}
                   onUploadComplete={handleUploadComplete}
+                  onFilesUploaded={handleFilesUploaded}
                 />
               </div>
             )}
