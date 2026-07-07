@@ -13,12 +13,18 @@ import { randomBytes } from "crypto";
  *     them to the sentinel: comment threads' author, invitations' inviter,
  *     activity log actor, split records' creator, split contributors,
  *     files' uploader, versions' author, admin actions, gigs, hires,
- *     payments, payouts,
+ *     payments, payouts — plus scrubbing the purged user's own address out
+ *     of Invitation.inviteeEmail (matched case-insensitively; invitee emails
+ *     aren't normalized at invite time the way User.email is),
  *  4. move the delete request itself to the sentinel and mark it completed
  *     (so the audit trail survives the cascade),
  *  5. hard-delete the user — cascades remove profile, owned projects (incl.
  *     members/files/versions rows), notifications, subscription, …
- * Owned projects' S3 objects are deleted before the row cascade.
+ * Owned projects' S3 objects are deleted before the row cascade starts. If
+ * any object delete fails, the purge aborts before the transaction runs — the
+ * request stays `pending` and is retried by tomorrow's sweep — rather than
+ * cascading the rows anyway and orphaning the surviving S3 objects forever
+ * (same philosophy as the soft-delete purge sweep).
  */
 
 export const SENTINEL_EMAIL = "system-deleted-user@musicolabhub.invalid";
@@ -44,14 +50,26 @@ async function purgeOneAccount(
   requestId: string,
   userId: string,
   sentinelId: string,
+  userEmail: string,
 ): Promise<void> {
   // S3 objects of files in projects the user OWNS (rows go away via cascade).
   const ownedFiles = await prisma.projectFile.findMany({
     where: { project: { ownerId: userId } },
     select: { s3Key: true },
   });
+  let s3Failure = false;
   for (const f of ownedFiles) {
-    await deleteObject(f.s3Key); // best-effort; rows cascade regardless
+    if (!(await deleteObject(f.s3Key))) {
+      s3Failure = true;
+    }
+  }
+  if (s3Failure) {
+    // Same philosophy as the soft-delete sweep: never cascade-delete rows
+    // whose S3 objects didn't actually go away, or the objects are orphaned
+    // with no DB row left to retry them. Bail out before the transaction
+    // starts — runAccountDeletionSweep's per-request catch marks this
+    // request failed and leaves it `pending` for tomorrow's retry.
+    throw new Error(`S3 purge incomplete for request ${requestId}`);
   }
 
   // Interactive form (not the array form): the split-contributor merge step
@@ -72,6 +90,13 @@ async function purgeOneAccount(
     await tx.invitation.updateMany({
       where: { inviterId: userId },
       data: { inviterId: sentinelId },
+    });
+    // Invitations store the raw invitee-supplied email (never lowercased at
+    // creation, unlike User.email which is normalized at signup/reset), so
+    // match case-insensitively against the purged user's own address.
+    await tx.invitation.updateMany({
+      where: { inviteeEmail: { equals: userEmail, mode: "insensitive" } },
+      data: { inviteeEmail: SENTINEL_EMAIL },
     });
     await tx.activityLog.updateMany({
       where: { actorId: userId },
@@ -169,7 +194,7 @@ export async function runAccountDeletionSweep(
 ): Promise<{ purged: number; failed: number }> {
   const due = await prisma.accountRequest.findMany({
     where: { type: "delete", status: "pending", scheduledFor: { lte: now } },
-    select: { id: true, userId: true },
+    select: { id: true, userId: true, user: { select: { email: true } } },
   });
   if (due.length === 0) return { purged: 0, failed: 0 };
 
@@ -178,7 +203,20 @@ export async function runAccountDeletionSweep(
   let failed = 0;
   for (const request of due) {
     try {
-      await purgeOneAccount(request.id, request.userId, sentinelId);
+      // The FK guarantees a User row for every AccountRequest, but guard
+      // anyway rather than let a missing relation throw an opaque error deep
+      // inside the transaction.
+      if (!request.user) {
+        throw new Error(
+          `Account request ${request.id} has no associated user`,
+        );
+      }
+      await purgeOneAccount(
+        request.id,
+        request.userId,
+        sentinelId,
+        request.user.email,
+      );
       purged += 1;
     } catch (err) {
       console.error(`Account purge failed for request ${request.id}:`, err);
