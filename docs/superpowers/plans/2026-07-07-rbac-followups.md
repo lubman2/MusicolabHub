@@ -36,7 +36,7 @@
 ```bash
 grep -rn "HIRE_GRANTABLE_ROLES" src/
 ```
-Expected: hits only in `src/lib/hires.ts` (definition, `HireGrantableRole` type derivation, `isGrantableMemberRole` guard) and possibly imports of `isGrantableMemberRole`/`HireGrantableRole` elsewhere. If any hit `.join(`s it into a user-facing message, STOP and report NEEDS_CONTEXT (role order in messages would change).
+Expected: hits only in `src/lib/hires.ts` (definition, `HireGrantableRole` type derivation, `isGrantableMemberRole` guard) and possibly imports of `isGrantableMemberRole`/`HireGrantableRole` elsewhere. RESOLVED EXCEPTION (controller decision 2026-07-07): `src/app/api/hires/[id]/access/route.ts:44` joins `HIRE_GRANTABLE_ROLES` into a 400 validation message with order "viewer, commenter, editor" — the rewire changes that message's role order to "editor, commenter, viewer". Accepted (cosmetic 400-message change, no client parses it); disclose in the PR body. The invitations message stays byte-identical.
 
 - [ ] **Step 2: Write the failing tests**
 
