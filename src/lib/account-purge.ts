@@ -54,80 +54,114 @@ async function purgeOneAccount(
     await deleteObject(f.s3Key); // best-effort; rows cascade regardless
   }
 
-  await prisma.$transaction([
+  // Interactive form (not the array form): the split-contributor merge step
+  // below needs read-then-write per row, which the array form can't express.
+  // Default transaction timeout is kept — sweeps process only a handful of
+  // requests per day, so large accounts aren't a throughput concern.
+  await prisma.$transaction(async (tx) => {
     // Personal content: delete outright rather than reassign (GDPR Art. 17).
-    prisma.comment.deleteMany({
+    await tx.comment.deleteMany({
       where: { authorId: userId },
-    }),
+    });
     // Containers/audit/financial trails: anonymize to the sentinel so the
     // rows survive for legal/audit retention (GDPR Art. 17(3)).
-    prisma.commentThread.updateMany({
+    await tx.commentThread.updateMany({
       where: { authorId: userId },
       data: { authorId: sentinelId },
-    }),
-    prisma.invitation.updateMany({
+    });
+    await tx.invitation.updateMany({
       where: { inviterId: userId },
       data: { inviterId: sentinelId },
-    }),
-    prisma.activityLog.updateMany({
+    });
+    await tx.activityLog.updateMany({
       where: { actorId: userId },
       data: { actorId: sentinelId },
-    }),
-    prisma.splitRecord.updateMany({
+    });
+    await tx.splitRecord.updateMany({
       where: { createdById: userId },
       data: { createdById: sentinelId },
-    }),
-    prisma.splitContributor.updateMany({
-      where: { userId: userId },
-      data: { userId: sentinelId },
-    }),
-    prisma.projectFile.updateMany({
+    });
+    // SplitContributor has @@unique([splitRecordId, userId]) — a blind
+    // updateMany aborts if the sentinel already contributes to the same
+    // split record. Merge per row instead: fold the purged user's
+    // percentage into the sentinel's existing row when one exists.
+    const contributions = await tx.splitContributor.findMany({
+      where: { userId },
+      select: { id: true, splitRecordId: true, percentage: true },
+    });
+    for (const contribution of contributions) {
+      const sentinelRow = await tx.splitContributor.findUnique({
+        where: {
+          splitRecordId_userId: {
+            splitRecordId: contribution.splitRecordId,
+            userId: sentinelId,
+          },
+        },
+        select: { id: true, percentage: true },
+      });
+      if (sentinelRow) {
+        // Merge: keep the split's percentage total intact on the sentinel row.
+        await tx.splitContributor.update({
+          where: { id: sentinelRow.id },
+          data: {
+            percentage: sentinelRow.percentage.add(contribution.percentage),
+          },
+        });
+        await tx.splitContributor.delete({ where: { id: contribution.id } });
+      } else {
+        await tx.splitContributor.update({
+          where: { id: contribution.id },
+          data: { userId: sentinelId },
+        });
+      }
+    }
+    await tx.projectFile.updateMany({
       where: { uploaderId: userId },
       data: { uploaderId: sentinelId },
-    }),
-    prisma.projectVersion.updateMany({
+    });
+    await tx.projectVersion.updateMany({
       where: { authorId: userId },
       data: { authorId: sentinelId },
-    }),
-    prisma.adminAction.updateMany({
+    });
+    await tx.adminAction.updateMany({
       where: { actorId: userId },
       data: { actorId: sentinelId },
-    }),
-    prisma.gig.updateMany({
+    });
+    await tx.gig.updateMany({
       where: { creatorId: userId },
       data: { creatorId: sentinelId },
-    }),
-    prisma.hire.updateMany({
+    });
+    await tx.hire.updateMany({
       where: { buyerId: userId },
       data: { buyerId: sentinelId },
-    }),
-    prisma.hire.updateMany({
+    });
+    await tx.hire.updateMany({
       where: { talentId: userId },
       data: { talentId: sentinelId },
-    }),
-    prisma.paymentRecord.updateMany({
+    });
+    await tx.paymentRecord.updateMany({
       where: { buyerId: userId },
       data: { buyerId: sentinelId },
-    }),
-    prisma.paymentRecord.updateMany({
+    });
+    await tx.paymentRecord.updateMany({
       where: { talentId: userId },
       data: { talentId: sentinelId },
-    }),
-    prisma.payoutRecord.updateMany({
+    });
+    await tx.payoutRecord.updateMany({
       where: { talentId: userId },
       data: { talentId: sentinelId },
-    }),
+    });
     // Preserve the audit trail of THIS deletion before the user cascade.
-    prisma.accountRequest.update({
+    await tx.accountRequest.update({
       where: { id: requestId },
       data: {
         userId: sentinelId,
         status: "completed",
         completedAt: new Date(),
       },
-    }),
-    prisma.user.delete({ where: { id: userId } }),
-  ]);
+    });
+    await tx.user.delete({ where: { id: userId } });
+  });
 }
 
 export async function runAccountDeletionSweep(
