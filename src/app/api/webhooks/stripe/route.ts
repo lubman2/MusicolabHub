@@ -175,6 +175,9 @@ async function handleSubscriptionCreated(event: Stripe.Event) {
         status,
         plan,
         ...(periodEnd && { currentPeriodEnd: periodEnd }),
+        ...(stripeSub.trial_end
+          ? { trialEndsAt: new Date(stripeSub.trial_end * 1000) }
+          : {}),
       },
     }),
     prisma.paymentEvent.create({
@@ -206,6 +209,9 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
     status,
     plan,
     ...(periodEnd && { currentPeriodEnd: periodEnd }),
+    ...(stripeSub.trial_end
+      ? { trialEndsAt: new Date(stripeSub.trial_end * 1000) }
+      : {}),
   };
 
   // Track cancellation
