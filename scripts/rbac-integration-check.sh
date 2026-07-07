@@ -12,6 +12,13 @@ if [ -f .env.local ]; then
   exit 2
 fi
 
+for port in 3100 5433; do
+  if lsof -ti ":$port" >/dev/null 2>&1; then
+    echo "ABORT: port $port is already in use — free it first (next dev falls back to a random port and cleanup could kill an unrelated process)." >&2
+    exit 2
+  fi
+done
+
 FAILED=0
 cleanup() {
   pkill -f "next dev -p 3100" 2>/dev/null || true
@@ -23,10 +30,15 @@ trap cleanup EXIT
 echo "== starting ephemeral postgres =="
 docker rm -f mcb-rbac-pg >/dev/null 2>&1 || true
 docker run -d --name mcb-rbac-pg -e POSTGRES_PASSWORD=pg -e POSTGRES_USER=pg -e POSTGRES_DB=mcb -p 5433:5432 postgres:16 >/dev/null
-for i in $(seq 1 30); do
-  docker exec mcb-rbac-pg pg_isready -U pg -d mcb >/dev/null 2>&1 && break
+PG_READY=0
+for _ in $(seq 1 30); do
+  if docker exec mcb-rbac-pg pg_isready -U pg -d mcb >/dev/null 2>&1; then PG_READY=1; break; fi
   sleep 1
 done
+if [ "$PG_READY" -ne 1 ]; then
+  echo "ABORT: postgres did not become ready within 30s (docker logs mcb-rbac-pg)." >&2
+  exit 2
+fi
 
 cat > .env.local <<'ENV'
 DATABASE_URL="postgresql://pg:pg@localhost:5433/mcb"
@@ -45,10 +57,15 @@ DATABASE_URL="postgresql://pg:pg@localhost:5433/mcb" npx prisma migrate deploy 2
 
 echo "== boot dev server =="
 (E2E_TEST_MODE=1 npx next dev -p 3100 >/tmp/rbac-check-dev.log 2>&1 &)
-for i in $(seq 1 30); do
-  curl -sf -o /dev/null http://127.0.0.1:3100/api/test/users -X POST -H 'content-type: application/json' -d '{"email":"warmup@test.dev","password":"testpass123"}' && break
+SERVER_READY=0
+for _ in $(seq 1 30); do
+  if curl -sf -o /dev/null http://127.0.0.1:3100/api/test/users -X POST -H 'content-type: application/json' -d '{"email":"warmup@test.dev","password":"testpass123"}'; then SERVER_READY=1; break; fi
   sleep 2
 done
+if [ "$SERVER_READY" -ne 1 ]; then
+  echo "ABORT: dev server did not boot within 60s — see /tmp/rbac-check-dev.log" >&2
+  exit 2
+fi
 
 mkuser() {
   curl -s -X POST http://127.0.0.1:3100/api/test/users -H 'content-type: application/json' \
@@ -63,7 +80,7 @@ echo "== seed =="
 OWNER_ID=$(mkuser owner@test.dev)
 VIEWER_ID=$(mkuser viewer@test.dev)
 ADMIN_ID=$(mkuser admin@test.dev)
-STRANGER_ID=$(mkuser stranger@test.dev)
+mkuser stranger@test.dev >/dev/null
 # /api/test/users cannot set role — promote admin via SQL.
 docker exec mcb-rbac-pg psql -U pg -d mcb -q -c "UPDATE \"User\" SET role='admin' WHERE id='$ADMIN_ID';"
 PROJECT_ID=$(docker exec mcb-rbac-pg psql -U pg -d mcb -qtc "INSERT INTO \"Project\" (id, \"ownerId\", title, status, \"createdAt\", \"updatedAt\") VALUES (gen_random_uuid(), '$OWNER_ID', 'RBAC check project', 'active', now(), now()) RETURNING id;" | tr -d ' ')
