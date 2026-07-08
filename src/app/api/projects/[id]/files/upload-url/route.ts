@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser, authorizeProjectPermission } from "@/lib/auth";
+import { authorizeProjectPermission } from "@/lib/auth";
 import {
   buildS3Key,
   generatePresignedUploadUrl,
   MAX_FILE_SIZE,
   S3_BUCKET,
 } from "@/lib/s3";
+import { withActiveSubscription } from "@/lib/subscription";
 
 /** Allowed MIME types per PRD §8.1. */
 const ALLOWED_MIME_TYPES = new Set([
@@ -35,17 +36,11 @@ function getExtension(filename: string): string {
   return idx >= 0 ? filename.slice(idx).toLowerCase() : "";
 }
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export const POST = withActiveSubscription(
+  "write",
+  async (request, { user }, routeContext) => {
+  const { params } = routeContext as { params: Promise<{ id: string }> };
   const { id: projectId } = await params;
-
-  // --- Auth ---
-  const user = await getAuthUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   // --- Parse body ---
   let body: { filename?: string; mimeType?: string; fileSize?: number };
@@ -137,4 +132,5 @@ export async function POST(
     { uploadUrl, fileId: file.id, s3Key },
     { status: 201 },
   );
-}
+  },
+);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser, authorizeProjectPermission } from "@/lib/auth";
 import type { VersionStatus } from "@/generated/prisma";
+import { withActiveSubscription } from "@/lib/subscription";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -123,17 +124,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 /**
  * POST /api/projects/:id/versions — create a draft version.
  */
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export const POST = withActiveSubscription(
+  "write",
+  async (request, { user }, routeContext) => {
+  const { params } = routeContext as { params: Promise<{ id: string }> };
   const { id: projectId } = await params;
-
-  // --- Auth ---
-  const user = await getAuthUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   // --- Parse body ---
   let body: { name?: string; changelog?: string };
@@ -193,4 +188,5 @@ export async function POST(
   });
 
   return NextResponse.json(version, { status: 201 });
-}
+  },
+);
