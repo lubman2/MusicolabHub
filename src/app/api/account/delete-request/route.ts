@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { verifyPassword } from "@/lib/password";
 import { sendAccountDeleteVerifyEmail } from "@/lib/email";
 import { VERIFY_TOKEN_EXPIRY_MINUTES } from "@/lib/account-request";
+import { SENTINEL_EMAIL } from "@/lib/account-purge";
 
 const VERIFY_TOKEN_BYTES = 32;
 
@@ -12,6 +13,10 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser(req);
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (user.email === SENTINEL_EMAIL) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   let body: { password?: string };

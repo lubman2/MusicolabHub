@@ -1,5 +1,6 @@
 import {
   S3Client,
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
@@ -121,4 +122,21 @@ export async function generatePresignedDownloadUrl(
   });
 
   return getSignedUrl(s3, command, { expiresIn });
+}
+
+/**
+ * Delete an object from the bucket. Returns true when the object is gone
+ * (deleted now or already absent), false when S3 errored — callers treat
+ * false as "retry on the next sweep".
+ */
+export async function deleteObject(key: string): Promise<boolean> {
+  try {
+    await s3.send(
+      new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: key }),
+    );
+    return true;
+  } catch (err) {
+    console.error(`Failed to delete S3 object ${key}:`, err);
+    return false;
+  }
 }

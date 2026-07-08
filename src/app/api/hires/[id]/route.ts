@@ -9,9 +9,8 @@ import {
 } from "@/lib/hires";
 import { logActivity } from "@/lib/activity-log";
 import { createNotification } from "@/lib/notifications";
-import { getStripe } from "@/lib/stripe";
-import { canReleasePayoutTo } from "@/lib/connect";
 import { autoReleaseDeadline } from "@/lib/payouts";
+import { releasePayoutForHire } from "@/lib/payout-release";
 import type { HireStatus } from "@/generated/prisma";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -366,94 +365,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  * or the auto-release worker will retry once Connect is verified).
  *
  * No-op when no PayoutRecord exists (e.g. buyer never paid) or the payout
- * is already past `blocked`/`scheduled`.
+ * is already past `blocked`/`scheduled`. Delegates to the shared
+ * `releasePayoutForHire` so this logic stays in sync with the auto-release
+ * cron sweep in `@/lib/payout-release`.
  */
 async function dispatchPayoutOnApproval(hireId: string) {
-  const payout = await prisma.payoutRecord.findFirst({
-    where: { payment: { hireId } },
-    select: {
-      id: true,
-      status: true,
-      blockReason: true,
-      amount: true,
-      currency: true,
-      paymentId: true,
-      talentId: true,
-      payment: { select: { hireId: true, status: true } },
-      talent: {
-        select: {
-          connectAccount: {
-            select: {
-              status: true,
-              payoutsEnabled: true,
-              stripeAccountId: true,
-            },
-          },
-        },
-      },
-    },
-  });
-  if (!payout) return;
-  if (payout.payment.status !== "succeeded") return;
-  if (payout.status !== "blocked" && payout.status !== "scheduled") return;
-  if (payout.status === "blocked" && payout.blockReason === "admin_hold") {
-    // Admin holds override approval — leave it alone
-    return;
-  }
-
-  const connect = payout.talent.connectAccount ?? null;
-  const eligible = canReleasePayoutTo(connect);
-
-  if (!eligible || !connect?.stripeAccountId) {
-    // Mark scheduled so admin/auto-release picks it up after Connect onboarding
-    await prisma.payoutRecord.update({
-      where: { id: payout.id },
-      data: {
-        status: "scheduled",
-        blockReason: null,
-        releasedAt: new Date(),
-      },
-    });
-    return;
-  }
-
-  let transferId: string;
-  try {
-    const stripe = getStripe();
-    const transfer = await stripe.transfers.create({
-      amount: payout.amount,
-      currency: payout.currency.toLowerCase(),
-      destination: connect.stripeAccountId,
-      transfer_group: `hire_${payout.payment.hireId}`,
-      metadata: {
-        payoutId: payout.id,
-        hireId: payout.payment.hireId,
-        talentId: payout.talentId,
-        triggeredBy: "buyer_approval",
-      },
-    });
-    transferId = transfer.id;
-  } catch (err) {
-    console.error("[Payout] Transfer failed on buyer approval:", err);
-    // Fall back to scheduled so an admin can retry; do not break approval.
-    await prisma.payoutRecord.update({
-      where: { id: payout.id },
-      data: {
-        status: "scheduled",
-        blockReason: null,
-        releasedAt: new Date(),
-      },
-    });
-    return;
-  }
-
-  await prisma.payoutRecord.update({
-    where: { id: payout.id },
-    data: {
-      status: "in_transit",
-      blockReason: null,
-      releasedAt: new Date(),
-      stripeTransferId: transferId,
-    },
-  });
+  await releasePayoutForHire(hireId, "buyer_approval");
 }

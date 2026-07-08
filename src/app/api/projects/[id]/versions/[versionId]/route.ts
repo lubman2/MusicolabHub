@@ -7,6 +7,7 @@ import {
   getProjectAudience,
 } from "@/lib/notifications";
 import { generatePresignedDownloadUrl } from "@/lib/s3";
+import { withActiveSubscription } from "@/lib/subscription";
 
 /**
  * GET /api/projects/:id/versions/:versionId — version metadata + file list.
@@ -144,17 +145,13 @@ export async function GET(
  * Supersedes any currently published version and sets this one to "published".
  * Logs activity on successful publish.
  */
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string; versionId: string }> },
-) {
+export const PATCH = withActiveSubscription(
+  "write",
+  async (request, { user }, routeContext) => {
+  const { params } = routeContext as {
+    params: Promise<{ id: string; versionId: string }>;
+  };
   const { id: projectId, versionId } = await params;
-
-  // --- Auth ---
-  const user = await getAuthUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   // --- Check project exists and is active ---
   const project = await prisma.project.findUnique({
@@ -244,7 +241,8 @@ export async function PATCH(
   );
 
   return NextResponse.json(published);
-}
+  },
+);
 
 /**
  * DELETE /api/projects/:id/versions/:versionId — soft-delete a version.

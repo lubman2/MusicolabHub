@@ -51,6 +51,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       amount: true,
       currency: true,
       status: true,
+      blockReason: true,
       payment: { select: { hireId: true, status: true } },
       talent: {
         select: {
@@ -89,22 +90,60 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   let nextStatus: "scheduled" | "in_transit" = "scheduled";
 
   if (eligible && connect?.stripeAccountId) {
-    const stripe = getStripe();
-    const transfer = await stripe.transfers.create({
-      amount: payout.amount,
-      currency: payout.currency.toLowerCase(),
-      destination: connect.stripeAccountId,
-      transfer_group: `hire_${payout.payment.hireId}`,
-      metadata: {
-        payoutId: payout.id,
-        hireId: payout.payment.hireId,
-        talentId: payout.talentId,
-        triggeredBy: "admin_release",
-        adminId: user.id,
+    // Atomically claim the payout before touching Stripe, mirroring
+    // releasePayout's CAS guard: if the auto-release cron (or another admin
+    // request) already claimed this payout, count === 0 and we bail instead
+    // of risking a double transfer. Pinning blockReason alongside status
+    // ensures a concurrent change to the hold reason also aborts the claim.
+    const claimed = await prisma.payoutRecord.updateMany({
+      where: {
+        id: payout.id,
+        status: payout.status,
+        blockReason: payout.blockReason,
       },
+      data: { status: "in_transit" },
     });
-    transferId = transfer.id;
-    nextStatus = "in_transit";
+    if (claimed.count === 0) {
+      return NextResponse.json(
+        { error: "Payout was already claimed by a concurrent release" },
+        { status: 409 },
+      );
+    }
+
+    try {
+      const stripe = getStripe();
+      const transfer = await stripe.transfers.create({
+        amount: payout.amount,
+        currency: payout.currency.toLowerCase(),
+        destination: connect.stripeAccountId,
+        transfer_group: `hire_${payout.payment.hireId}`,
+        metadata: {
+          payoutId: payout.id,
+          hireId: payout.payment.hireId,
+          talentId: payout.talentId,
+          triggeredBy: "admin_release",
+          adminId: user.id,
+        },
+      });
+      transferId = transfer.id;
+      nextStatus = "in_transit";
+    } catch (err) {
+      console.error(`[Payout] Admin release transfer failed:`, err);
+      // Compensate: revert the claim so the row goes back to its pre-claim
+      // status/blockReason and the next admin/auto-release attempt retries.
+      await prisma.payoutRecord
+        .update({
+          where: { id: payout.id },
+          data: { status: payout.status, blockReason: payout.blockReason },
+        })
+        .catch((revertErr) => {
+          console.error(
+            `Failed to revert claim on payout ${payout.id}:`,
+            revertErr,
+          );
+        });
+      throw err;
+    }
   }
 
   const [updated] = await prisma.$transaction([

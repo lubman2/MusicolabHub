@@ -5,6 +5,7 @@ import type { Prisma } from "@/generated/prisma";
 import { mapStripeAccountToStatus } from "@/lib/connect";
 import { autoReleaseDeadline } from "@/lib/payouts";
 import { createNotification } from "@/lib/notifications";
+import { payoutAmountFor } from "@/lib/payments";
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -175,6 +176,9 @@ async function handleSubscriptionCreated(event: Stripe.Event) {
         status,
         plan,
         ...(periodEnd && { currentPeriodEnd: periodEnd }),
+        ...(stripeSub.trial_end
+          ? { trialEndsAt: new Date(stripeSub.trial_end * 1000) }
+          : {}),
       },
     }),
     prisma.paymentEvent.create({
@@ -206,6 +210,9 @@ async function handleSubscriptionUpdated(event: Stripe.Event) {
     status,
     plan,
     ...(periodEnd && { currentPeriodEnd: periodEnd }),
+    ...(stripeSub.trial_end
+      ? { trialEndsAt: new Date(stripeSub.trial_end * 1000) }
+      : {}),
   };
 
   // Track cancellation
@@ -485,6 +492,7 @@ async function handleMarketplacePaymentIntentSucceeded(event: Stripe.Event) {
       talentId: true,
       amount: true,
       currency: true,
+      platformFee: true,
       status: true,
     },
   });
@@ -549,7 +557,7 @@ async function handleMarketplacePaymentIntentSucceeded(event: Stripe.Event) {
       create: {
         paymentId: payment.id,
         talentId: payment.talentId,
-        amount: payment.amount,
+        amount: payoutAmountFor(payment),
         currency: payment.currency,
         status: "blocked",
         blockReason,

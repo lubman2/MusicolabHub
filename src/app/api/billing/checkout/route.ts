@@ -83,6 +83,8 @@ export async function POST(request: NextRequest) {
       stripeCustomerId,
       plan: plan as "pro" | "team",
       status: "trialing",
+      // Provisional; overwritten by webhook's authoritative trial_end
+      trialEndsAt: new Date(Date.now() + TRIAL_PERIOD_DAYS * 24 * 60 * 60 * 1000),
     },
     update: {
       stripeCustomerId,

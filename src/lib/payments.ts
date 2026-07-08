@@ -69,3 +69,15 @@ export function canTransitionPaymentStatus(
 export function isPaymentTerminal(status: PaymentStatus): boolean {
   return status === "refunded" || status === "cancelled";
 }
+
+/**
+ * Amount actually transferred to the talent: the buyer's payment minus the
+ * recorded platform fee (never negative). The platform keeps the fee on its
+ * Stripe balance — see R-8.4-06.
+ */
+export function payoutAmountFor(payment: {
+  amount: number;
+  platformFee: number;
+}): number {
+  return Math.max(0, payment.amount - payment.platformFee);
+}

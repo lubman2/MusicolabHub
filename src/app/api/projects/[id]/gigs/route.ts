@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { GIG_PUBLIC_SELECT, parseGigDraft } from "@/lib/gigs";
 import { logActivity } from "@/lib/activity-log";
+import { withActiveSubscription } from "@/lib/subscription";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -59,12 +60,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  * have permission to expose work to the marketplace on the owner's behalf).
  * The gig starts in `draft` status and is published via a separate call.
  */
-export async function POST(request: NextRequest, { params }: RouteParams) {
-  const user = await getCurrentUser(request);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const POST = withActiveSubscription(
+  "write",
+  async (request, { user }, routeContext) => {
+  const { params } = routeContext as RouteParams;
   const { id: projectId } = await params;
 
   const project = await prisma.project.findUnique({
@@ -122,4 +121,5 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   );
 
   return NextResponse.json(gig, { status: 201 });
-}
+  },
+);
