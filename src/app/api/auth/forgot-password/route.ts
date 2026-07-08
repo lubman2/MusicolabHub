@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendPasswordResetEmail } from "@/lib/email";
@@ -62,9 +62,13 @@ export async function POST(req: NextRequest) {
       data: { userId: user.id, token, expiresAt },
     });
 
-    sendPasswordResetEmail({ to: email, token }).catch((err) => {
-      console.error("Failed to send password reset email:", err);
-    });
+    // `after()` keeps the serverless function alive past the response —
+    // a bare fire-and-forget promise would be frozen mid-SMTP-handshake.
+    after(() =>
+      sendPasswordResetEmail({ to: email, token }).catch((err) => {
+        console.error("Failed to send password reset email:", err);
+      }),
+    );
   }
 
   return NextResponse.json({ ok: true });

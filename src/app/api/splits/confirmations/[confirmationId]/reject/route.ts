@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-log";
@@ -96,19 +96,23 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     });
   });
 
-  // Log activity (non-blocking)
-  logActivity(split.project.id, user.id, "split_rejected", {
-    type: "split_confirmation",
-    id: confirmationId,
-  }).catch(() => {});
-
-  // Notify owner (non-blocking)
-  sendConfirmationResponseEmail({
-    to: split.createdBy.email,
-    contributorEmail: user.email,
-    projectTitle: split.project.title,
-    response: "rejected",
-  }).catch(() => {});
+  // Log activity + notify owner after the response — `after()` keeps the
+  // serverless function alive; bare fire-and-forget promises would be
+  // frozen when the response returns on Vercel.
+  after(() =>
+    logActivity(split.project.id, user.id, "split_rejected", {
+      type: "split_confirmation",
+      id: confirmationId,
+    }).catch(() => {}),
+  );
+  after(() =>
+    sendConfirmationResponseEmail({
+      to: split.createdBy.email,
+      contributorEmail: user.email,
+      projectTitle: split.project.title,
+      response: "rejected",
+    }).catch(() => {}),
+  );
 
   return NextResponse.json(updated);
 }

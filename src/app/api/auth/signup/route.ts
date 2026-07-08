@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
@@ -106,10 +106,14 @@ export async function POST(req: NextRequest) {
     select: { id: true },
   });
 
-  // Send verification email (fire-and-forget — don't block response on SMTP)
-  sendVerificationEmail(email!, verificationToken).catch((err) => {
-    console.error("Failed to send verification email:", err);
-  });
+  // Send verification email after the response — `after()` keeps the
+  // serverless function alive past the response; a bare fire-and-forget
+  // promise would be frozen mid-SMTP-handshake on Vercel.
+  after(() =>
+    sendVerificationEmail(email!, verificationToken).catch((err) => {
+      console.error("Failed to send verification email:", err);
+    }),
+  );
 
   return NextResponse.json({ userId: user.id }, { status: 201 });
 }
