@@ -11,7 +11,15 @@ methods ready for the external services.
 - **File storage** — AWS S3 (or any S3-compatible bucket)
 - **Payments** — Stripe (test mode) + Stripe Connect for marketplace payouts
 - **Email** — Mailtrap (sandbox) for previews; transactional provider for prod
-- **Cron** — Vercel scheduled function (`/api/cron/expire-trials`)
+- **Cron** — Vercel scheduled functions:
+  - `/api/cron/expire-trials` — daily `0 3 * * *`
+  - `/api/cron/purge-account-deletions` — daily `10 3 * * *`
+  - `/api/cron/purge-soft-deleted` — daily `20 3 * * *`
+  - `/api/cron/release-payouts` — daily `30 3 * * *`
+
+  All cron routes share the same `Authorization: Bearer $CRON_SECRET` contract;
+  `release-payouts` runs daily on Hobby — tighten its schedule (e.g.
+  `0 * * * *`) on a Pro plan for closer-to-deadline auto-release.
 
 ---
 
@@ -191,7 +199,9 @@ to keep preview traffic isolated from prod.
 - framework = `nextjs`
 - build = `prisma generate && next build`
 - region = `fra1` (change here if your DB lives elsewhere)
-- daily cron at 03:00 UTC → `/api/cron/expire-trials`
+- daily crons at 03:00-03:30 UTC → `/api/cron/expire-trials`,
+  `/api/cron/purge-account-deletions`, `/api/cron/purge-soft-deleted`,
+  `/api/cron/release-payouts`
 
 ---
 
@@ -254,8 +264,9 @@ Pass criteria (script exits 0):
 - `/` renders (200)
 - `/api/webhooks/stripe` rejects an unsigned POST with 400/401 (proves the
   route is reachable and signature verification is wired)
-- `/api/cron/expire-trials` returns 401 without auth (proves the route is
-  reachable and auth-gated)
+- `/api/cron/expire-trials`, `/api/cron/purge-account-deletions`,
+  `/api/cron/purge-soft-deleted`, and `/api/cron/release-payouts` each return
+  401 without auth (proves the routes are reachable and auth-gated)
 
 If anything fails, the script prints the failing endpoint's response. Common
 fixes:
