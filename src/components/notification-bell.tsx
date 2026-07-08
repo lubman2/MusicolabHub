@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type NotificationType =
   | "comment_added"
@@ -30,6 +31,7 @@ interface NotificationsResponse {
 const POLL_INTERVAL_MS = 60_000;
 
 export function NotificationBell() {
+  const router = useRouter();
   const [items, setItems] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -92,6 +94,14 @@ export function NotificationBell() {
     }
   };
 
+  const handleItemClick = (n: Notification) => {
+    if (!n.isRead) void markRead(n.id);
+    if (n.sourceType === "split_confirmation" && n.sourceId) {
+      setOpen(false);
+      router.push(`/splits/confirmations/${n.sourceId}`);
+    }
+  };
+
   if (!signedIn) return null;
 
   return (
@@ -150,7 +160,7 @@ export function NotificationBell() {
               >
                 <button
                   type="button"
-                  onClick={() => !n.isRead && markRead(n.id)}
+                  onClick={() => handleItemClick(n)}
                   className="block w-full text-left"
                 >
                   <p className="text-sm font-medium text-neutral-900">

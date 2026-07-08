@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, authorizeProjectPermission } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-log";
+import { createNotification } from "@/lib/notifications";
 
 type RouteParams = { params: Promise<{ id: string; splitId: string }> };
 
@@ -108,7 +109,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     id: splitId,
   });
 
-  // TODO: Send notification to each contributor (notification service not yet implemented)
+  // Notify each contributor that their confirmation is awaited.
+  for (const contributor of updated.contributors) {
+    if (!contributor.confirmation || contributor.userId === user.id) continue;
+    await createNotification({
+      userId: contributor.userId,
+      type: "split_submitted",
+      title: "A royalty split awaits your confirmation",
+      body: `You are allocated ${Number(contributor.percentage)}% — please confirm or reject.`,
+      sourceType: "split_confirmation",
+      sourceId: contributor.confirmation.id,
+    });
+  }
 
   return NextResponse.json(updated);
 }

@@ -33,12 +33,15 @@ interface FileUploadState {
 interface BatchFileUploadProps {
   projectId: string;
   onUploadComplete?: (successCount: number, failedCount: number) => void;
+  /** Fired once when every file settles, with the fileIds that uploaded successfully. */
+  onFilesUploaded?: (fileIds: string[]) => void;
   className?: string;
 }
 
 export function BatchFileUpload({
   projectId,
   onUploadComplete,
+  onFilesUploaded,
   className = "",
 }: BatchFileUploadProps) {
   const [files, setFiles] = useState<FileUploadState[]>([]);
@@ -189,6 +192,13 @@ export function BatchFileUpload({
           const successCount = currentFiles.filter((f) => f.status === "success").length;
           const failedCount = currentFiles.filter((f) => f.status === "error").length;
           onUploadComplete?.(successCount, failedCount);
+
+          const uploadedIds = currentFiles
+            .filter((f) => f.status === "success" && f.fileId)
+            .map((f) => f.fileId as string);
+          if (uploadedIds.length > 0) {
+            onFilesUploaded?.(uploadedIds);
+          }
         }
         return currentFiles;
       });

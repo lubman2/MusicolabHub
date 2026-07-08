@@ -62,6 +62,12 @@ export default function VersionsPage() {
   const [resp, setResp] = useState<VersionsResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newChangelog, setNewChangelog] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -94,6 +100,32 @@ export default function VersionsPage() {
     router.push(`/projects/${projectId}/versions${q ? `?${q}` : ""}`);
   }
 
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setCreateError(null);
+    setCreating(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/versions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newName,
+          changelog: newChangelog || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setCreateError(data.error || "Failed to create version");
+        return;
+      }
+      router.push(`/projects/${projectId}/versions/${data.id}`);
+    } catch {
+      setCreateError("Network error. Try again.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   const versions = resp?.data ?? [];
   const pagination = resp?.pagination;
 
@@ -104,13 +136,56 @@ export default function VersionsPage() {
         <ProjectTabs projectId={projectId} />
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Versions</h1>
-          <button
-            onClick={toggleFilter}
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50"
-          >
-            {showAll ? "Published only" : "Show all"}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowCreate((v) => !v)}
+              className="rounded-md bg-neutral-900 px-4 py-2 text-sm text-white hover:bg-neutral-800"
+            >
+              New Version
+            </button>
+            <button
+              onClick={toggleFilter}
+              className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50"
+            >
+              {showAll ? "Published only" : "Show all"}
+            </button>
+          </div>
         </div>
+
+        {showCreate && (
+          <form
+            onSubmit={handleCreate}
+            className="mb-6 mt-6 space-y-3 rounded-lg border border-neutral-200 bg-white p-4"
+          >
+            <label className="block">
+              <span className="block text-sm font-medium">Name</span>
+              <input
+                required
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                className="mt-1 block w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+                placeholder="v1.0 — first mix"
+              />
+            </label>
+            <label className="block">
+              <span className="block text-sm font-medium">Changelog (optional)</span>
+              <textarea
+                value={newChangelog}
+                onChange={(e) => setNewChangelog(e.target.value)}
+                rows={3}
+                className="mt-1 block w-full rounded border border-neutral-300 px-3 py-2 text-sm"
+              />
+            </label>
+            {createError && <p className="text-sm text-red-600">{createError}</p>}
+            <button
+              type="submit"
+              disabled={creating || !newName.trim()}
+              className="rounded-md bg-neutral-900 px-4 py-2 text-sm text-white hover:bg-neutral-800 disabled:opacity-50"
+            >
+              {creating ? "Creating…" : "Create draft"}
+            </button>
+          </form>
+        )}
 
         {loading ? (
           <p className="mt-8 text-sm text-neutral-500">Loading...</p>
