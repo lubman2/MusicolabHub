@@ -12,6 +12,10 @@ interface Actor {
   profile: { displayName: string | null } | null;
 }
 
+// Mirrors the Prisma ActivityAction enum. The activity API returns EVERY
+// action logged for the project (its VALID_ACTIONS list only validates the
+// ?action= filter), so this union + ACTION_VERBS must cover the full enum —
+// with a runtime fallback for safety (see actionVerbsFor).
 type ActivityAction =
   | "file_uploaded"
   | "file_deleted"
@@ -26,12 +30,42 @@ type ActivityAction =
   | "member_removed"
   | "project_created"
   | "project_archived"
+  | "project_restored"
+  | "project_deleted"
   | "gig_created"
   | "gig_published"
   | "gig_closed"
-  | "gig_cancelled";
+  | "gig_cancelled"
+  | "gig_application_submitted"
+  | "gig_application_withdrawn"
+  | "gig_application_accepted"
+  | "gig_application_rejected"
+  | "gig_hire_started"
+  | "gig_hire_delivered"
+  | "gig_hire_approved"
+  | "gig_hire_cancelled"
+  | "gig_hire_access_granted"
+  | "hire_payment_succeeded"
+  | "hire_payment_failed"
+  | "hire_payout_scheduled"
+  | "hire_payout_paid"
+  | "hire_payout_held"
+  | "hire_payout_released"
+  | "hire_payout_failed"
+  | "connect_onboarding_started"
+  | "connect_onboarding_completed";
 
-type TargetType = "project" | "file" | "version" | "split" | "member" | "gig";
+type TargetType =
+  | "project"
+  | "file"
+  | "version"
+  | "split"
+  | "split_confirmation"
+  | "member"
+  | "invitation"
+  | "gig"
+  | "gig_application"
+  | "hire";
 
 interface ActivityEntry {
   id: string;
@@ -166,7 +200,103 @@ const ACTION_VERBS: Record<ActivityAction, { single: string; plural: (n: number)
     single: "zrušil(a) gig",
     plural: (n) => `zrušil(a) ${n} gigů`,
   },
+  project_restored: {
+    single: "obnovil(a) projekt",
+    plural: (n) => `obnovil(a) projekt (${n}×)`,
+  },
+  project_deleted: {
+    single: "smazal(a) projekt",
+    plural: (n) => `smazal(a) projekt (${n}×)`,
+  },
+  gig_application_submitted: {
+    single: "se přihlásil(a) na gig",
+    plural: (n) => `se přihlásil(a) na gig (${n}×)`,
+  },
+  gig_application_withdrawn: {
+    single: "stáhl(a) přihlášku na gig",
+    plural: (n) => `stáhl(a) ${n} přihlášek na gig`,
+  },
+  gig_application_accepted: {
+    single: "přijal(a) přihlášku na gig",
+    plural: (n) => `přijal(a) ${n} přihlášek na gig`,
+  },
+  gig_application_rejected: {
+    single: "odmítl(a) přihlášku na gig",
+    plural: (n) => `odmítl(a) ${n} přihlášek na gig`,
+  },
+  gig_hire_started: {
+    single: "zahájil(a) spolupráci",
+    plural: (n) => `zahájil(a) ${n} spoluprací`,
+  },
+  gig_hire_delivered: {
+    single: "odevzdal(a) zakázku",
+    plural: (n) => `odevzdal(a) ${n} zakázek`,
+  },
+  gig_hire_approved: {
+    single: "schválil(a) zakázku",
+    plural: (n) => `schválil(a) ${n} zakázek`,
+  },
+  gig_hire_cancelled: {
+    single: "zrušil(a) zakázku",
+    plural: (n) => `zrušil(a) ${n} zakázek`,
+  },
+  gig_hire_access_granted: {
+    single: "udělil(a) přístup k projektu",
+    plural: (n) => `udělil(a) přístup k projektu (${n}×)`,
+  },
+  hire_payment_succeeded: {
+    single: "zaplatil(a) za zakázku",
+    plural: (n) => `zaplatil(a) za ${n} zakázek`,
+  },
+  hire_payment_failed: {
+    single: "má neúspěšnou platbu za zakázku",
+    plural: (n) => `má ${n} neúspěšných plateb za zakázku`,
+  },
+  hire_payout_scheduled: {
+    single: "má naplánovanou výplatu",
+    plural: (n) => `má ${n} naplánovaných výplat`,
+  },
+  hire_payout_paid: {
+    single: "obdržel(a) výplatu",
+    plural: (n) => `obdržel(a) ${n} výplat`,
+  },
+  hire_payout_held: {
+    single: "má pozdrženou výplatu",
+    plural: (n) => `má ${n} pozdržených výplat`,
+  },
+  hire_payout_released: {
+    single: "má uvolněnou výplatu",
+    plural: (n) => `má ${n} uvolněných výplat`,
+  },
+  hire_payout_failed: {
+    single: "má neúspěšnou výplatu",
+    plural: (n) => `má ${n} neúspěšných výplat`,
+  },
+  connect_onboarding_started: {
+    single: "zahájil(a) napojení výplat",
+    plural: (n) => `zahájil(a) napojení výplat (${n}×)`,
+  },
+  connect_onboarding_completed: {
+    single: "dokončil(a) napojení výplat",
+    plural: (n) => `dokončil(a) napojení výplat (${n}×)`,
+  },
 };
+
+/**
+ * Total lookup: an action the map doesn't know (future enum additions)
+ * degrades to a readable generic verb instead of crashing the page.
+ */
+function actionVerbsFor(action: ActivityAction): {
+  single: string;
+  plural: (n: number) => string;
+} {
+  return (
+    ACTION_VERBS[action] ?? {
+      single: String(action).replace(/_/g, " "),
+      plural: (n: number) => `${String(action).replace(/_/g, " ")} (${n}×)`,
+    }
+  );
+}
 
 function targetHref(
   projectId: string,
@@ -333,10 +463,11 @@ export default function ActivityPage() {
           <>
             <ul className="mt-6 space-y-3">
               {groups.map((group) => {
+                const verbs = actionVerbsFor(group.action);
                 const verb =
                   group.entries.length > 1
-                    ? ACTION_VERBS[group.action].plural(group.entries.length)
-                    : ACTION_VERBS[group.action].single;
+                    ? verbs.plural(group.entries.length)
+                    : verbs.single;
                 const showTargets = group.entries.length > 1;
                 const firstHref = targetHref(projectId, group.entries[0]);
                 const firstLabel = targetLabel(group.entries[0]);
